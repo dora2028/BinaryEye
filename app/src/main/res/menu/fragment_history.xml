@@ -8,6 +8,31 @@
 		material:actionViewClass="androidx.appcompat.widget.SearchView"
 		material:showAsAction="collapseActionView|always"/>
 	<item
+		android:id="@+id/expand_collapse_all"
+		android:icon="@drawable/ic_action_unfold_more"
+		android:title="@string/expand_all_groups"
+		material:showAsAction="always"/>
+	<item
+		android:id="@+id/filter"
+		android:icon="@drawable/ic_action_filter"
+		android:title="@string/filter_by_group"
+		material:showAsAction="ifRoom"/>
+	<item
+		android:id="@+id/manage_groups"
+		android:icon="@drawable/ic_label"
+		android:title="@string/manage_groups"
+		material:showAsAction="ifRoom"/>
+	<item
+		android:id="@+id/export_txt"
+		android:icon="@drawable/ic_action_save"
+		android:title="@string/export_as_text"
+		material:showAsAction="ifRoom"/>
+	<item
+		android:id="@+id/export_archive"
+		android:icon="@drawable/ic_action_history"
+		android:title="@string/export_archive"
+		material:showAsAction="ifRoom"/>
+	<item
 		android:id="@+id/export_history"
 		android:icon="@drawable/ic_action_export"
 		android:title="@string/export_to_file"

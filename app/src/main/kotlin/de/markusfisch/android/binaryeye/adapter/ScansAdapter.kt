@@ -2,11 +2,14 @@ package de.markusfisch.android.binaryeye.adapter
 
 import android.content.Context
 import android.database.Cursor
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.CursorAdapter
+import android.widget.BaseAdapter
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.Spinner
@@ -16,36 +19,198 @@ import de.markusfisch.android.binaryeye.content.ParsedContentType
 import de.markusfisch.android.binaryeye.content.getContentPreview
 import de.markusfisch.android.binaryeye.content.parsedContentTypeFromName
 import de.markusfisch.android.binaryeye.database.Database
+import de.markusfisch.android.binaryeye.database.ScanGroup
+import java.text.Collator
 import java.text.DateFormat
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 class ScansAdapter(
-	context: Context,
-	cursor: Cursor,
+	private val context: Context,
+	cursor: Cursor?,
+	groups: List<ScanGroup>,
+	private val sortOrder: String,
+	private val expandedGroups: MutableSet<String>,
 	private val onPinClick: (Long, Boolean) -> Unit
-) :
-	CursorAdapter(context, cursor, false) {
-	private val idIndex = cursor.getColumnIndex(Database.SCANS_ID)
-	private val pinnedIndex = cursor.getColumnIndex(Database.SCANS_PINNED)
-	private val timeIndex = cursor.getColumnIndex(Database.SCANS_DATETIME)
-	private val nameIndex = cursor.getColumnIndex(Database.SCANS_NAME)
-	private val textIndex = cursor.getColumnIndex(Database.SCANS_TEXT)
-	private val rawIndex = cursor.getColumnIndex(Database.SCANS_RAW)
-	private val contentTypeIndex = cursor.getColumnIndex(Database.SCANS_CONTENT_TYPE)
-	private val formatIndex = cursor.getColumnIndex(Database.SCANS_FORMAT)
-	private val selections = mutableMapOf<Long, Int>()
-	fun select(view: View, id: Long, position: Int) {
-		view.select(
-			if (selections[id] == null) {
-				selections[id] = position
-				true
-			} else {
-				selections.remove(id)
-				false
+) : BaseAdapter() {
+
+	private val inflater = LayoutInflater.from(context)
+	private val collator = Collator.getInstance(Locale.getDefault())
+	private val groupById = groups.associateBy { it.id }
+
+	private val scans = mutableListOf<ScanItem>()
+	private val selections = mutableSetOf<Long>()
+	private val groupSelections = mutableSetOf<String>()
+	private var rows = emptyList<Row>()
+
+	init {
+		changeCursor(cursor)
+	}
+
+	fun changeCursor(cursor: Cursor?) {
+		scans.clear()
+		cursor?.use { c ->
+			val idIndex = c.getColumnIndex(Database.SCANS_ID)
+			val pinnedIndex = c.getColumnIndex(Database.SCANS_PINNED)
+			val timeIndex = c.getColumnIndex(Database.SCANS_DATETIME)
+			val nameIndex = c.getColumnIndex(Database.SCANS_NAME)
+			val textIndex = c.getColumnIndex(Database.SCANS_TEXT)
+			val rawIndex = c.getColumnIndex(Database.SCANS_RAW)
+			val contentTypeIndex = c.getColumnIndex(
+				Database.SCANS_CONTENT_TYPE
+			)
+			val formatIndex = c.getColumnIndex(Database.SCANS_FORMAT)
+			val groupIndex = c.getColumnIndex(Database.SCANS_GROUP_ID)
+			while (c.moveToNext()) {
+				scans.add(
+					ScanItem(
+						c.getLong(idIndex),
+						c.getInt(pinnedIndex) != 0,
+						c.getString(timeIndex) ?: "",
+						c.getString(nameIndex),
+						c.getString(textIndex) ?: "",
+						c.getBlob(rawIndex),
+						parsedContentTypeFromName(
+							c.getString(contentTypeIndex)
+						),
+						c.getString(formatIndex) ?: "",
+						groupIndex.takeIf { it >= 0 }?.let { c.getLong(it) } ?: 0L
+					)
+				)
 			}
-		)
+		}
+		rebuildRows()
+		notifyDataSetChanged()
+	}
+
+	// Exposes the number of scans (excluding group headers) so callers
+	// can still tell whether the history is empty.
+	fun getScanCount() = scans.size
+
+	fun isHeader(position: Int): Boolean = rows.getOrNull(position) is Row.Header
+
+	fun headerKeyAt(position: Int): String? =
+		(rows.getOrNull(position) as? Row.Header)?.key
+
+	fun isHeaderSelected(position: Int): Boolean {
+		val key = headerKeyAt(position) ?: return false
+		return key in groupSelections
+	}
+
+	// Toggles the selection of a group header. Returns true when the group
+	// ended up selected.
+	fun toggleGroupSelection(position: Int): Boolean {
+		val key = headerKeyAt(position) ?: return false
+		return if (key in groupSelections) {
+			groupSelections.remove(key)
+			false
+		} else {
+			groupSelections.add(key)
+			true
+		}
+	}
+
+	// Selects every visible group header (pinned, default and every custom
+	// group that currently has a header row).
+	fun selectAllGroups() {
+		groupSelections.clear()
+		rows.forEach { row ->
+			if (row is Row.Header) {
+				groupSelections.add(row.key)
+			}
+		}
+		notifyDataSetChanged()
+	}
+
+	fun clearGroupSelection() {
+		groupSelections.clear()
+	}
+
+	fun getSelectedGroupKeys(): Set<String> = groupSelections.toSet()
+
+	fun getSelectedGroupCount(): Int = groupSelections.size
+
+	// Maps a set of group keys back to the ids of the scans that belong to
+	// them. Used to export the text of one or more selected groups.
+	fun getScanIdsForGroupKeys(keys: Set<String>): Set<Long> =
+		scans.filter { groupKeyOf(it) in keys }.map { it.id }.toSet()
+
+	fun toggleGroup(position: Int) {
+		val header = rows.getOrNull(position) as? Row.Header ?: return
+		if (header.key in expandedGroups) {
+			expandedGroups.remove(header.key)
+			// Collapsed groups must not take part in selection, so drop any
+			// items that were selected while the group was still expanded.
+			removeSelections(header.key)
+		} else {
+			expandedGroups.add(header.key)
+		}
+		rebuildRows()
+		notifyDataSetChanged()
+	}
+
+	// Expands every group (pinned, the default/ungrouped group and every
+	// custom group), so all scanned items become visible.
+	fun expandAll() {
+		expandedGroups.add(PINNED_GROUP_KEY)
+		expandedGroups.add(DEFAULT_GROUP_KEY)
+		groupById.keys.forEach { expandedGroups.add("group:$it") }
+		rebuildRows()
+		notifyDataSetChanged()
+	}
+
+	// Collapses every group so only the group headers remain.
+	fun collapseAll() {
+		expandedGroups.clear()
+		rebuildRows()
+		notifyDataSetChanged()
+	}
+
+	fun isAllExpanded(): Boolean =
+		PINNED_GROUP_KEY in expandedGroups &&
+			DEFAULT_GROUP_KEY in expandedGroups &&
+			groupById.keys.all { "group:$it" in expandedGroups }
+
+	fun select(view: View, id: Long, position: Int) {
+		if (isHeader(position)) {
+			return
+		}
+		if (id in selections) {
+			selections.remove(id)
+			view.select(false)
+		} else {
+			selections.add(id)
+			view.select(true)
+		}
+	}
+
+	// Selects every *visible* item only. Collapsed groups are not part of
+	// `rows`, so their items are intentionally left out.
+	fun selectAll() {
+		selections.clear()
+		rows.forEach { row ->
+			if (row is Row.Scan) {
+				selections.add(row.item.id)
+			}
+		}
+		notifyDataSetChanged()
+	}
+
+	// Inverts the selection of every *visible* item only. Items inside
+	// collapsed groups are not present in `rows`, so they are left as-is.
+	fun invertSelection() {
+		rows.forEach { row ->
+			if (row is Row.Scan) {
+				val id = row.item.id
+				if (id in selections) {
+					selections.remove(id)
+				} else {
+					selections.add(id)
+				}
+			}
+		}
+		notifyDataSetChanged()
 	}
 
 	fun clearSelection() {
@@ -53,111 +218,285 @@ class ScansAdapter(
 	}
 
 	fun forSelection(callback: (Long, Int) -> Unit) {
-		selections.forEach {
-			callback.invoke(it.key, it.value)
+		selections.forEach { id ->
+			val position = indexOfScan(id)
+			if (position >= 0) {
+				callback(id, position)
+			}
 		}
 	}
 
-	fun getSelectedIds(): List<Long> = mutableListOf<Long>().apply {
-		forSelection { id, _ ->
-			add(id)
-		}
-	}
+	fun getSelectedIds(): List<Long> = selections.toList()
 
 	fun getSelectedContent(separator: String): String {
 		val sb = StringBuilder()
-		forSelection { _, position ->
-			getContent(position)?.let {
+		selections.forEach { id ->
+			scanById(id)?.let { item ->
 				if (sb.isNotEmpty()) {
 					sb.append(separator)
 				}
-				sb.append(it)
+				sb.append(item.text)
 			}
 		}
 		return sb.toString()
 	}
 
-	fun getName(
-		position: Int
-	) = (getItem(position) as Cursor?)?.getString(nameIndex)
+	fun getName(position: Int) = scanAt(position)?.name
 
-	fun getContent(
-		position: Int
-	) = (getItem(position) as Cursor?)?.getString(textIndex)
+	fun getContent(position: Int) = scanAt(position)?.text
 
-	override fun newView(
-		context: Context,
-		cursor: Cursor,
-		parent: ViewGroup
-	): View? = LayoutInflater.from(parent.context).inflate(
-		R.layout.row_scan, parent, false
-	)
+	fun getNameById(id: Long) = scanById(id)?.name
 
-	override fun bindView(
-		view: View,
-		context: Context,
-		cursor: Cursor
-	) {
-		val id = cursor.getLong(idIndex)
-		val pinned = cursor.getInt(pinnedIndex) != 0
-		val format = cursor.getString(formatIndex)
-		val contentType = parsedContentTypeFromName(
-			cursor.getString(contentTypeIndex)
-		)
-		getViewHolder(view).apply {
-			metaView.text = formatDateTime(cursor.getString(timeIndex))
-			formatView.text = format.prettifyFormatName().withContentType(
-				context,
-				contentType
-			)
-			formatIconView.setImageResource(format.toBarcodeIcon())
-			val name = cursor.getString(nameIndex)
-			val text = cursor.getString(textIndex)
-			val raw = cursor.getBlob(rawIndex)
-			var icon = 0
-			contentView.text = when {
-				name?.isNotEmpty() == true -> {
-					icon = R.drawable.ic_label
-					name
-				}
+	fun getContentById(id: Long) = scanById(id)?.text
 
-				text.isNullOrEmpty() -> getContentPreview(
-					context,
-					text ?: "",
-					raw ?: ByteArray(0),
-					format
+	private fun rebuildRows() {
+		val newRows = mutableListOf<Row>()
+		val pinnedItems = scans.filter { it.pinned }
+		if (pinnedItems.isNotEmpty()) {
+			val key = PINNED_GROUP_KEY
+			newRows.add(
+				Row.Header(
+					key,
+					context.getString(R.string.pinned_group),
+					pinnedItems.size
 				)
-
-				else -> text
+			)
+			if (key in expandedGroups) {
+				pinnedItems.sortedByDescending { it.dateTime }
+					.forEach { newRows.add(Row.Scan(it)) }
 			}
-			contentView.setCompoundDrawablesWithIntrinsicBounds(
-				icon, 0, 0, 0
-			)
-			pinView.apply {
-				setImageResource(
-					if (pinned) {
-						R.drawable.ic_action_pin
-					} else {
-						R.drawable.ic_action_pin_outline
-					}
+		}
+		scans.filter { !it.pinned }
+			.groupBy { it.groupId.takeIf { g -> g > 0L } ?: 0L }
+			.toList()
+			.sortedWith(groupComparator())
+			.forEach { (groupId, items) ->
+				val key = "group:$groupId"
+				newRows.add(
+					Row.Header(key, groupTitle(groupId), items.size)
 				)
-				contentDescription = context.getString(
-					if (pinned) {
-						R.string.unpin_item
-					} else {
-						R.string.pin_item
+				if (key in expandedGroups) {
+					items.sortedByDescending { it.dateTime }
+						.forEach { newRows.add(Row.Scan(it)) }
+				}
+			}
+		rows = newRows
+	}
+
+	private fun groupComparator() =
+		Comparator<Pair<Long, List<ScanItem>>> { (aId, _), (bId, _) ->
+			val aDefault = aId <= 0L
+			val bDefault = bId <= 0L
+			when {
+				aDefault && bDefault -> 0
+				// The ungrouped "default" group is always pinned to the top.
+				aDefault -> -1
+				bDefault -> 1
+				else -> {
+					val a = groupById[aId]
+					val b = groupById[bId]
+					val aPinned = a?.pinned == true
+					val bPinned = b?.pinned == true
+					when {
+						aPinned && bPinned -> compareBySortOrder(a, b)
+						aPinned -> -1
+						bPinned -> 1
+						else -> compareBySortOrder(a, b)
 					}
-				)
-				setOnClickListener {
-					onPinClick(id, !pinned)
 				}
 			}
 		}
-		val selected = selections[id] != null
+
+	private fun compareBySortOrder(a: ScanGroup?, b: ScanGroup?): Int =
+		when (sortOrder) {
+			"time_asc" -> (a?.created ?: 0L).compareTo(b?.created ?: 0L)
+			"time_desc" -> (b?.created ?: 0L).compareTo(a?.created ?: 0L)
+			"name_desc" -> collator.compare(b?.name ?: "", a?.name ?: "")
+			else -> collator.compare(a?.name ?: "", b?.name ?: "")
+		}
+
+	private fun groupTitle(groupId: Long): String =
+		if (groupId <= 0L) {
+			context.getString(R.string.group_other)
+		} else {
+			groupById[groupId]?.name ?: context.getString(R.string.group_other)
+		}
+
+	// Removes the selection of every item that belongs to the given group
+	// key. Used when a group is collapsed so that collapsed items never stay
+	// selected.
+	private fun removeSelections(key: String) {
+		scans.forEach { item ->
+			if (groupKeyOf(item) == key) {
+				selections.remove(item.id)
+			}
+		}
+	}
+
+	// Same key derivation as rebuildRows(): pinned items belong to the pinned
+	// group, ungrouped items to the default group, everything else to its
+	// custom group.
+	private fun groupKeyOf(item: ScanItem): String = when {
+		item.pinned -> PINNED_GROUP_KEY
+		item.groupId > 0L -> "group:${item.groupId}"
+		else -> DEFAULT_GROUP_KEY
+	}
+
+	private fun scanById(id: Long) = scans.firstOrNull { it.id == id }
+
+	private fun scanAt(position: Int) =
+		(rows.getOrNull(position) as? Row.Scan)?.item
+
+	private fun indexOfScan(id: Long) = rows.indexOfFirst {
+		(it as? Row.Scan)?.item?.id == id
+	}
+
+	override fun getViewTypeCount() = 2
+
+	override fun getItemViewType(position: Int) = when (rows[position]) {
+		is Row.Header -> VIEW_TYPE_HEADER
+		is Row.Scan -> VIEW_TYPE_SCAN
+	}
+
+	override fun getCount() = rows.size
+
+	override fun getItem(position: Int): Any = rows[position]
+
+	override fun getItemId(position: Int) = when (val row = rows[position]) {
+		is Row.Scan -> row.item.id
+		is Row.Header -> NO_ID
+	}
+
+	override fun getView(
+		position: Int,
+		convertView: View?,
+		parent: ViewGroup
+	): View = when (val row = rows[position]) {
+		is Row.Header -> getHeaderView(row, convertView, parent)
+		is Row.Scan -> getScanView(row.item, convertView, parent)
+	}
+
+	private fun getHeaderView(
+		header: Row.Header,
+		convertView: View?,
+		parent: ViewGroup
+	): View {
+		val holder: HeaderViewHolder
+		val view: View
+		val oldHolder = convertView?.tag as? HeaderViewHolder
+		if (oldHolder != null) {
+			view = convertView
+			holder = oldHolder
+		} else {
+			view = inflater.inflate(R.layout.row_scan_group, parent, false)
+			holder = HeaderViewHolder(
+				view.findViewById(R.id.group_expand),
+				view.findViewById(R.id.group_title),
+				view.findViewById(R.id.group_count)
+			)
+			view.tag = holder
+		}
+		val expanded = header.key in expandedGroups
+		holder.titleView.text = header.title
+		holder.countView.text = header.count.toString()
+		holder.expandView.rotation = if (expanded) 0f else -90f
+		holder.expandView.contentDescription = context.getString(
+			if (expanded) R.string.collapse_group else R.string.expand_group
+		)
+		// Highlight the header while it is selected in group multi-select.
+		val selected = header.key in groupSelections
+		if (view.isActivated != selected) {
+			view.isActivated = selected
+			view.refreshDrawableState()
+		}
+		return view
+	}
+
+	private fun getScanView(
+		item: ScanItem,
+		convertView: View?,
+		parent: ViewGroup
+	): View {
+		val holder: ScanViewHolder
+		val view: View
+		val oldHolder = convertView?.tag as? ScanViewHolder
+		if (oldHolder != null) {
+			view = convertView
+			holder = oldHolder
+		} else {
+			view = inflater.inflate(R.layout.row_scan, parent, false)
+			holder = ScanViewHolder(
+				view.findViewById(R.id.format_icon),
+				view.findViewById(R.id.meta),
+				view.findViewById(R.id.format),
+				view.findViewById(R.id.group_badge),
+				view.findViewById(R.id.content),
+				view.findViewById(R.id.pin)
+			)
+			view.tag = holder
+		}
+		holder.metaView.text = formatDateTime(item.dateTime)
+		holder.formatView.text = item.format.prettifyFormatName()
+			.withContentType(context, item.contentType)
+		holder.formatIconView.setImageResource(item.format.toBarcodeIcon())
+		val group = item.groupId.takeIf { it > 0L }?.let { groupById[it] }
+		if (group != null) {
+			holder.groupView.text = SpannableString("● ${group.name}").apply {
+				setSpan(
+					ForegroundColorSpan(group.color),
+					0,
+					1,
+					Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+				)
+			}
+			holder.groupView.visibility = View.VISIBLE
+		} else {
+			holder.groupView.visibility = View.GONE
+		}
+		var icon = 0
+		holder.contentView.text = when {
+			item.name?.isNotEmpty() == true -> {
+				icon = R.drawable.ic_label
+				item.name
+			}
+
+			item.text.isEmpty() -> getContentPreview(
+				context,
+				item.text,
+				item.raw ?: ByteArray(0),
+				item.format
+			)
+
+			else -> item.text
+		}
+		holder.contentView.setCompoundDrawablesWithIntrinsicBounds(
+			icon, 0, 0, 0
+		)
+		holder.pinView.apply {
+			setImageResource(
+				if (item.pinned) {
+					R.drawable.ic_action_pin
+				} else {
+					R.drawable.ic_action_pin_outline
+				}
+			)
+			contentDescription = context.getString(
+				if (item.pinned) {
+					R.string.unpin_item
+				} else {
+					R.string.pin_item
+				}
+			)
+			setOnClickListener {
+				onPinClick(item.id, !item.pinned)
+			}
+		}
+		val selected = item.id in selections
 		view.post {
 			// Needs to be put on the queue to work.
 			view.select(selected)
 		}
+		return view
 	}
 
 	private fun View.select(selected: Boolean) {
@@ -165,25 +504,52 @@ class ScansAdapter(
 		refreshDrawableState()
 	}
 
-	private fun getViewHolder(
-		view: View
-	): ViewHolder = view.tag as ViewHolder? ?: ViewHolder(
-		view.findViewById(R.id.format_icon),
-		view.findViewById(R.id.meta),
-		view.findViewById(R.id.format),
-		view.findViewById(R.id.content),
-		view.findViewById(R.id.pin)
-	).also {
-		view.tag = it
+	private data class ScanItem(
+		val id: Long,
+		val pinned: Boolean,
+		val dateTime: String,
+		val name: String?,
+		val text: String,
+		val raw: ByteArray?,
+		val contentType: ParsedContentType,
+		val format: String,
+		val groupId: Long
+	)
+
+	private sealed class Row {
+		data class Header(
+			val key: String,
+			val title: String,
+			val count: Int
+		) : Row()
+
+		data class Scan(
+			val item: ScanItem
+		) : Row()
 	}
 
-	private data class ViewHolder(
+	private data class HeaderViewHolder(
+		val expandView: ImageView,
+		val titleView: TextView,
+		val countView: TextView
+	)
+
+	private data class ScanViewHolder(
 		val formatIconView: ImageView,
 		val metaView: TextView,
 		val formatView: TextView,
+		val groupView: TextView,
 		val contentView: TextView,
 		val pinView: ImageButton
 	)
+
+	companion object {
+		const val VIEW_TYPE_HEADER = 0
+		const val VIEW_TYPE_SCAN = 1
+		const val NO_ID = -1L
+		const val PINNED_GROUP_KEY = "pinned"
+		const val DEFAULT_GROUP_KEY = "group:0"
+	}
 }
 
 private val formatWordBoundary =

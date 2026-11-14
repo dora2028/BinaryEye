@@ -50,8 +50,15 @@ fun Context.writeExternalFile(
 	fileName: String,
 	mimeType: String,
 	write: (outputStream: OutputStream) -> Unit
+): Boolean = writeExternalFileTo(fileName, mimeType, null, write)
+
+fun Context.writeExternalFileTo(
+	fileName: String,
+	mimeType: String,
+	subDirectory: String?,
+	write: (outputStream: OutputStream) -> Unit
 ): Boolean = try {
-	openExternalOutputStream(fileName, mimeType).use { write(it) }
+	openExternalOutputStream(fileName, mimeType, subDirectory).use { write(it) }
 	true
 } catch (_: IOException) {
 	false
@@ -59,14 +66,19 @@ fun Context.writeExternalFile(
 
 private fun Context.openExternalOutputStream(
 	fileName: String,
-	mimeType: String
+	mimeType: String,
+	subDirectory: String?
 ): OutputStream = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-	val file = File(
-		Environment.getExternalStoragePublicDirectory(
-			Environment.DIRECTORY_DOWNLOADS
-		),
-		fileName
+	val dir = Environment.getExternalStoragePublicDirectory(
+		Environment.DIRECTORY_DOWNLOADS
 	)
+	val target = if (subDirectory.isNullOrEmpty()) {
+		dir
+	} else {
+		File(dir, subDirectory)
+	}
+	target.mkdirs()
+	val file = File(target, fileName)
 	if (file.exists()) {
 		throw IOException()
 	}
@@ -78,6 +90,12 @@ private fun Context.openExternalOutputStream(
 		ContentValues().apply {
 			put(MediaStore.Downloads.DISPLAY_NAME, fileName)
 			put(MediaStore.Downloads.MIME_TYPE, mimeType)
+			if (!subDirectory.isNullOrEmpty()) {
+				put(
+					MediaStore.Downloads.RELATIVE_PATH,
+					Environment.DIRECTORY_DOWNLOADS + "/" + subDirectory
+				)
+			}
 		}
 	) ?: throw IOException()
 	resolver.openOutputStream(uri) ?: throw IOException()

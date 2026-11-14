@@ -1,0 +1,14 @@
+<menu
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:material="http://schemas.android.com/apk/res-auto">
+	<item
+		android:id="@+id/select_all"
+		android:title="@string/select_all"
+		android:icon="@drawable/ic_action_select_all"
+		material:showAsAction="ifRoom"/>
+	<item
+		android:id="@+id/export_selected"
+		android:title="@string/export_selected_groups"
+		android:icon="@drawable/ic_action_save"
+		material:showAsAction="ifRoom"/>
+</menu>

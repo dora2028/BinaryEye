@@ -94,12 +94,23 @@ data class Scan(
 
 fun Result.toScan(): Scan {
 	return Scan(
+		// Keep the decoded text whenever it is present. zxing-cpp may
+		// classify some GS1 payloads (which contain 0x1D group separators)
+		// as Binary or Mixed even though their text is a perfectly readable
+		// GS1 string. Blanking the text here made such scans show up as
+		// empty in the history and get silently dropped when exporting.
+		//
+		// For Binary/Mixed content zxing-cpp returns the text in "escaped"
+		// form, where non-graphical control characters are spelled out as
+		// "<GS>", "<FS>", etc. Restore the real control characters so the
+		// exported text keeps its actual group separators (0x1D) instead of
+		// the literal "<GS>" marker.
 		when (contentType) {
 			ContentType.GS1,
 			ContentType.ISO15434,
 			ContentType.TEXT -> text
 
-			else -> "" // Show as binary.
+			else -> text.restoreEscapedControlCharacters()
 		},
 		rawBytes,
 		format,
@@ -115,6 +126,26 @@ fun Result.toScan(): Scan {
 		gtin?.price,
 		gtin?.issueNumber
 	)
+}
+
+// Names used by zxing-cpp's EscapeNonGraphical() for ASCII control
+// characters 0x00-0x1F, in order. "<DEL>" (0x7F) is handled separately.
+private val ESCAPED_CONTROL_CHARACTER_NAMES = arrayOf(
+	"NUL", "SOH", "STX", "ETX", "EOT", "ENQ", "ACK", "BEL",
+	"BS", "HT", "LF", "VT", "FF", "CR", "SO", "SI",
+	"DLE", "DC1", "DC2", "DC3", "DC4", "NAK", "SYN", "ETB",
+	"CAN", "EM", "SUB", "ESC", "FS", "GS", "RS", "US"
+)
+
+// Reverses zxing-cpp's escaped representation of control characters, e.g.
+// "<GS>" -> 0x1D (group separator), so exported text keeps the real
+// separator character instead of a literal marker.
+private fun String.restoreEscapedControlCharacters(): String {
+	var result = this
+	ESCAPED_CONTROL_CHARACTER_NAMES.forEachIndexed { index, name ->
+		result = result.replace("<$name>", index.toChar().toString())
+	}
+	return result.replace("<DEL>", "\u007f")
 }
 
 fun Scan.toBundle() = Bundle().apply {

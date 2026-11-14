@@ -3,6 +3,7 @@ package de.markusfisch.android.binaryeye.database
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
+import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import de.markusfisch.android.binaryeye.app.prefs
@@ -24,7 +25,13 @@ class Database {
 		fillMissingContentTypes()
 	}
 
-	fun getScans(query: String? = null): Cursor = db.rawQuery(
+	fun getScans(
+		query: String? = null,
+		groupId: Long? = null,
+		excludePinned: Boolean = false,
+		excludeDefault: Boolean = false,
+		excludeGroupIds: Set<Long> = emptySet()
+	): Cursor = db.rawQuery(
 		"""SELECT
 			$SCANS_ID,
 			$SCANS_PINNED,
@@ -33,14 +40,30 @@ class Database {
 			$SCANS_TEXT,
 			$SCANS_RAW,
 			$SCANS_CONTENT_TYPE,
-			$SCANS_FORMAT
+			$SCANS_FORMAT,
+			$SCANS_GROUP_ID
 			FROM $SCANS
-			${getWhereClause(query)}
+			${getWhereClause(
+				query,
+				groupId,
+				excludePinned = excludePinned,
+				excludeDefault = excludeDefault,
+				excludeGroupIds = excludeGroupIds
+			)}
 			ORDER BY $SCANS_PINNED DESC, $SCANS_DATETIME DESC
-		""".trimMargin(), getWhereArguments(query)
+		""".trimMargin(), getWhereArguments(
+			query,
+			groupId,
+			excludePinned,
+			excludeDefault,
+			excludeGroupIds
+		)
 	)
 
-	fun getScansDetailed(query: String? = null): Cursor = db.rawQuery(
+	fun getScansDetailed(
+		query: String? = null,
+		groupId: Long? = null
+	): Cursor = db.rawQuery(
 		"""SELECT
 			$SCANS_ID,
 			$SCANS_PINNED,
@@ -60,29 +83,71 @@ class Database {
 			$SCANS_GTIN_ISSUE_NUMBER,
 			$SCANS_CONTENT_TYPE
 			FROM $SCANS
-			${getWhereClause(query)}
+			${getWhereClause(query, groupId)}
 			ORDER BY $SCANS_PINNED DESC, $SCANS_DATETIME DESC
-		""".trimMargin(), getWhereArguments(query)
+		""".trimMargin(), getWhereArguments(query, groupId)
 	)
 
 	private fun getWhereClause(
 		query: String?,
-		prefix: String = "WHERE"
-	) = if (query?.isNotEmpty() == true) {
-		"""$prefix $SCANS_TEXT LIKE ?
-			OR $SCANS_NAME LIKE ?
-			OR $SCANS_FORMAT LIKE ?"""
-	} else {
-		""
+		groupId: Long?,
+		prefix: String = "WHERE",
+		excludePinned: Boolean = false,
+		excludeDefault: Boolean = false,
+		excludeGroupIds: Set<Long> = emptySet()
+	): String {
+		val conditions = mutableListOf<String>()
+		if (query?.isNotEmpty() == true) {
+			conditions.add(
+				"($SCANS_TEXT LIKE ? OR $SCANS_NAME LIKE ? OR $SCANS_FORMAT LIKE ?)"
+			)
+		}
+		when {
+			groupId == null -> Unit
+			groupId <= 0L ->
+				conditions.add("($SCANS_GROUP_ID IS NULL OR $SCANS_GROUP_ID = 0)")
+			else -> conditions.add("$SCANS_GROUP_ID = ?")
+		}
+		if (excludePinned) {
+			conditions.add("$SCANS_PINNED = 0")
+		}
+		if (excludeDefault) {
+			conditions.add(
+				"($SCANS_GROUP_ID IS NOT NULL AND $SCANS_GROUP_ID != 0)"
+			)
+		}
+		if (excludeGroupIds.isNotEmpty()) {
+			conditions.add(
+				"($SCANS_GROUP_ID IS NULL OR $SCANS_GROUP_ID NOT IN (${
+					excludeGroupIds.joinToString(",")
+				}))"
+			)
+		}
+		return if (conditions.isEmpty()) {
+			""
+		} else {
+			"$prefix ${conditions.joinToString(" AND ")}"
+		}
 	}
 
 	private fun getWhereArguments(
-		query: String?
-	) = if (query?.isNotEmpty() == true) {
-		val instr = "%$query%"
-		arrayOf(instr, instr, instr)
-	} else {
-		null
+		query: String?,
+		groupId: Long?,
+		excludePinned: Boolean = false,
+		excludeDefault: Boolean = false,
+		excludeGroupIds: Set<Long> = emptySet()
+	): Array<String>? {
+		val args = mutableListOf<String>()
+		if (query?.isNotEmpty() == true) {
+			val instr = "%$query%"
+			args.add(instr)
+			args.add(instr)
+			args.add(instr)
+		}
+		if (groupId != null && groupId > 0L) {
+			args.add("$groupId")
+		}
+		return if (args.isEmpty()) null else args.toTypedArray()
 	}
 
 	fun getScansDetailed(ids: LongArray): Cursor = db.rawQuery(
@@ -109,6 +174,13 @@ class Database {
 			ORDER BY $SCANS_PINNED DESC, $SCANS_DATETIME DESC
 		""".trimMargin(), null
 	)
+
+	fun countScans(): Int = db.rawQuery(
+		"SELECT COUNT(*) FROM $SCANS",
+		null
+	).use {
+		if (it.moveToFirst()) it.getInt(0) else 0
+	}
 
 	fun getScan(id: Long): Scan? = db.rawQuery(
 		"""SELECT
@@ -279,8 +351,12 @@ class Database {
 		db.delete(SCANS, "$SCANS_ID = ?", arrayOf("$id"))
 	}
 
-	fun removeScans(query: String? = null) {
-		db.delete(SCANS, getWhereClause(query, ""), getWhereArguments(query))
+	fun removeScans(query: String? = null, groupId: Long? = null) {
+		db.delete(
+			SCANS,
+			getWhereClause(query, groupId, ""),
+			getWhereArguments(query, groupId)
+		)
 	}
 
 	fun renameScan(id: Long, name: String) {
@@ -293,6 +369,78 @@ class Database {
 		val cv = ContentValues()
 		cv.put(SCANS_PINNED, if (pinned) 1 else 0)
 		db.update(SCANS, cv, "$SCANS_ID = ?", arrayOf("$id"))
+	}
+
+	fun getGroups(): Cursor = db.rawQuery(
+		"""SELECT
+			$GROUPS_ID,
+			$GROUPS_NAME,
+			$GROUPS_COLOR,
+			$GROUPS_CREATED,
+			$GROUPS_PINNED
+			FROM $GROUPS
+			ORDER BY $GROUPS_NAME COLLATE NOCASE
+		""".trimMargin(), null
+	)
+
+	fun insertGroup(name: String, color: Int): Long = try {
+		db.insertOrThrow(
+			GROUPS,
+			null,
+			ContentValues().apply {
+				put(GROUPS_NAME, name)
+				put(GROUPS_COLOR, color)
+				put(GROUPS_CREATED, System.currentTimeMillis())
+			}
+		)
+	} catch (_: SQLiteConstraintException) {
+		-1L
+	}
+
+	fun setGroupPinned(id: Long, pinned: Boolean) {
+		db.update(
+			GROUPS,
+			ContentValues().apply {
+				put(GROUPS_PINNED, if (pinned) 1 else 0)
+			},
+			"$GROUPS_ID = ?",
+			arrayOf("$id")
+		)
+	}
+
+	fun renameGroup(id: Long, name: String): Boolean = try {
+		db.update(
+			GROUPS,
+			ContentValues().apply {
+				put(GROUPS_NAME, name)
+			},
+			"$GROUPS_ID = ?",
+			arrayOf("$id")
+		) > 0
+	} catch (_: SQLiteConstraintException) {
+		false
+	}
+
+	fun removeGroup(id: Long) {
+		db.update(
+			SCANS,
+			ContentValues().apply {
+				putNull(SCANS_GROUP_ID)
+			},
+			"$SCANS_GROUP_ID = ?",
+			arrayOf("$id")
+		)
+		db.delete(GROUPS, "$GROUPS_ID = ?", arrayOf("$id"))
+	}
+
+	fun setScanGroup(scanId: Long, groupId: Long?) {
+		val cv = ContentValues()
+		if (groupId == null || groupId <= 0L) {
+			cv.putNull(SCANS_GROUP_ID)
+		} else {
+			cv.put(SCANS_GROUP_ID, groupId)
+		}
+		db.update(SCANS, cv, "$SCANS_ID = ?", arrayOf("$scanId"))
 	}
 
 	private fun fillMissingContentTypes() {
@@ -340,7 +488,7 @@ class Database {
 	).type
 
 	private class OpenHelper(context: Context) :
-		SQLiteOpenHelper(context, FILE_NAME, null, 11) {
+		SQLiteOpenHelper(context, FILE_NAME, null, 13) {
 		override fun onCreate(db: SQLiteDatabase) {
 			db.createScans()
 		}
@@ -380,6 +528,12 @@ class Database {
 			if (oldVersion < 11) {
 				db.addContentTypeColumn()
 			}
+			if (oldVersion < 12) {
+				db.addGroupColumn()
+			}
+			if (oldVersion < 13) {
+				db.addGroupSortColumns()
+			}
 		}
 	}
 
@@ -415,6 +569,13 @@ class Database {
 		const val SCANS_GTIN_ISSUE_NUMBER = "gtin_issue_number"
 		const val SCANS_PINNED = "pinned"
 		const val SCANS_CONTENT_TYPE = "content_type"
+		const val SCANS_GROUP_ID = "group_id"
+		const val GROUPS = "groups"
+		const val GROUPS_ID = "_id"
+		const val GROUPS_NAME = "name"
+		const val GROUPS_COLOR = "color"
+		const val GROUPS_CREATED = "created"
+		const val GROUPS_PINNED = "pinned"
 
 		private fun SQLiteDatabase.createScans() {
 			execSQL("DROP TABLE IF EXISTS $SCANS".trimMargin())
@@ -440,9 +601,11 @@ class Database {
 					$SCANS_GTIN_PRICE TEXT,
 					$SCANS_GTIN_ISSUE_NUMBER TEXT,
 					$SCANS_PINNED INTEGER NOT NULL DEFAULT 0,
-					$SCANS_CONTENT_TYPE TEXT NOT NULL DEFAULT '${ParsedContentType.UNKNOWN.name}'
+					$SCANS_CONTENT_TYPE TEXT NOT NULL DEFAULT '${ParsedContentType.UNKNOWN.name}',
+					$SCANS_GROUP_ID INTEGER
 				)""".trimMargin()
 			)
+			createGroups()
 		}
 
 		private fun SQLiteDatabase.addRawColumn() {
@@ -514,6 +677,49 @@ class Database {
 
 		private fun SQLiteDatabase.addContentTypeColumn() {
 			execSQL("ALTER TABLE $SCANS ADD COLUMN $SCANS_CONTENT_TYPE TEXT")
+		}
+
+		private fun SQLiteDatabase.createGroups() {
+			execSQL("DROP TABLE IF EXISTS $GROUPS".trimMargin())
+			execSQL(
+				"""CREATE TABLE $GROUPS (
+					$GROUPS_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+					$GROUPS_NAME TEXT NOT NULL UNIQUE,
+					$GROUPS_COLOR INTEGER NOT NULL DEFAULT 0,
+					$GROUPS_CREATED INTEGER NOT NULL DEFAULT 0,
+					$GROUPS_PINNED INTEGER NOT NULL DEFAULT 0
+				)""".trimMargin()
+			)
+		}
+
+		private fun SQLiteDatabase.addGroupColumn() {
+			createGroups()
+			execSQL("ALTER TABLE $SCANS ADD COLUMN $SCANS_GROUP_ID INTEGER")
+		}
+
+		private fun SQLiteDatabase.addGroupSortColumns() {
+			// Idempotent: createGroups() already creates the full table on
+			// fresh installs and on the v11 -> v12 step, so only add the
+			// columns when upgrading from an existing v12 database.
+			val existing = rawQuery(
+				"PRAGMA table_info($GROUPS)", null
+			).use { c ->
+				buildSet {
+					while (c.moveToNext()) {
+						add(c.getString(c.getColumnIndex("name")))
+					}
+				}
+			}
+			if (GROUPS_CREATED !in existing) {
+				execSQL(
+					"ALTER TABLE $GROUPS ADD COLUMN $GROUPS_CREATED INTEGER NOT NULL DEFAULT 0"
+				)
+			}
+			if (GROUPS_PINNED !in existing) {
+				execSQL(
+					"ALTER TABLE $GROUPS ADD COLUMN $GROUPS_PINNED INTEGER NOT NULL DEFAULT 0"
+				)
+			}
 		}
 	}
 }

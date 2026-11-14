@@ -144,6 +144,16 @@ class Preferences {
 			apply(USE_HISTORY, value)
 			field = value
 		}
+	var exportDirectoryUri = ""
+		set(value) {
+			apply(EXPORT_DIRECTORY_URI, value)
+			field = value
+		}
+	var groupSortOrder = DEFAULT_GROUP_SORT_ORDER
+		set(value) {
+			apply(GROUP_SORT_ORDER, value)
+			field = value
+		}
 	var ignoreDuplicatesName = "ignore_consecutive_duplicates"
 		set(value) {
 			apply(IGNORE_DUPLICATES_NAME, value)
@@ -590,6 +600,18 @@ class Preferences {
 			beepToneUri = it
 		}
 		useHistory = preferences.getBoolean(USE_HISTORY, useHistory)
+		preferences.getString(
+			EXPORT_DIRECTORY_URI,
+			exportDirectoryUri
+		)?.also {
+			exportDirectoryUri = it
+		}
+		preferences.getString(
+			GROUP_SORT_ORDER,
+			groupSortOrder
+		)?.also {
+			groupSortOrder = it
+		}
 
 		// Map old setting to new one if it wasn't on default value.
 		val ignoreConsecutiveDuplicates = "ignore_consecutive_duplicates"
@@ -933,6 +955,9 @@ class Preferences {
 		private const val BEEP_STREAM_NAME = "beep_stream_name"
 		private const val BEEP_TONE_URI = "beep_tone_uri"
 		private const val USE_HISTORY = "use_history"
+		private const val EXPORT_DIRECTORY_URI = "export_directory_uri"
+		private const val GROUP_SORT_ORDER = "group_sort_order"
+		private const val DEFAULT_GROUP_SORT_ORDER = "time_desc"
 		private const val IGNORE_DUPLICATES_NAME = "ignore_duplicates_name"
 		private const val IGNORE_CODES = "ignore_codes"
 		private const val OPEN_IMMEDIATELY = "open_immediately"

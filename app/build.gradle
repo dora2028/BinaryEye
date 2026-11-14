@@ -34,6 +34,13 @@ android {
 		}
 
 		release {
+			// Keep the debug application id so this build can replace an
+			// already installed debug build. Pass -PreleaseOwnPackage to
+			// get the original application id for a real store release.
+			if (!project.hasProperty('releaseOwnPackage')) {
+				applicationIdSuffix '.debug'
+			}
+
 			proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
 			minifyEnabled true
 			shrinkResources true
@@ -75,6 +82,7 @@ dependencies {
 	implementation "androidx.appcompat:appcompat:1.7.1" // Keep for minSDK 21.
 	implementation "com.google.android.material:material:1.13.0" // Keep for minSDK 21.
 	implementation "androidx.preference:preference:1.2.1"
+	implementation "androidx.documentfile:documentfile:1.0.1"
 
 	// External
 	var camerax_version = '1.4.2' // Keep for minSDK 21.
