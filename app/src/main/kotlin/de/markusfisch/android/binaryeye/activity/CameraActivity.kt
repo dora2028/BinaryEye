@@ -1147,7 +1147,8 @@ class CameraActivity : AppCompatActivity() {
 			if (bulkMode) {
 				when (prefs.ignoreDuplicates()) {
 					Preferences.Companion.IgnoreDuplicates.Consecutive,
-					Preferences.Companion.IgnoreDuplicates.Any -> {
+					Preferences.Companion.IgnoreDuplicates.Any,
+					Preferences.Companion.IgnoreDuplicates.AnyInDefaultGroup -> {
 						ignoreNext = result.text
 					}
 

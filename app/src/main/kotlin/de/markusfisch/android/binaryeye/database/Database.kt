@@ -262,6 +262,19 @@ class Database {
 				}
 			}
 
+			// Only consider scans that are still in the default group,
+			// so codes already filed into a custom group don't block
+			// saving the same code again.
+			Preferences.Companion.IgnoreDuplicates.AnyInDefaultGroup -> {
+				val id = getIdOfScanByContentInDefaultGroup(
+					scan.text,
+					scan.format
+				)
+				if (id > 0L) {
+					return id
+				}
+			}
+
 			else -> Unit
 		}
 		return db.insert(
@@ -337,6 +350,27 @@ class Database {
 				FROM $SCANS
 				WHERE $SCANS_TEXT = ?
 					AND $SCANS_FORMAT = ?
+				LIMIT 1
+			""".trimMargin(), arrayOf(content, format.name)
+	).use {
+		if (it.moveToFirst()) {
+			it.getLong(SCANS_ID)
+		} else {
+			0L
+		}
+	}
+
+	private fun getIdOfScanByContentInDefaultGroup(
+		content: String,
+		format: BarcodeFormat
+	): Long = db.rawQuery(
+		"""SELECT
+				$SCANS_ID
+				FROM $SCANS
+				WHERE $SCANS_TEXT = ?
+					AND $SCANS_FORMAT = ?
+					AND ($SCANS_GROUP_ID IS NULL
+						OR $SCANS_GROUP_ID = 0)
 				LIMIT 1
 			""".trimMargin(), arrayOf(content, format.name)
 	).use {

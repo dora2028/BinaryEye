@@ -766,6 +766,7 @@ class Preferences {
 	fun ignoreDuplicates() = when (ignoreDuplicatesName) {
 		"ignore_consecutive_duplicates" -> IgnoreDuplicates.Consecutive
 		"ignore_any_duplicates" -> IgnoreDuplicates.Any
+		"ignore_any_duplicates_default_group" -> IgnoreDuplicates.AnyInDefaultGroup
 		else -> IgnoreDuplicates.Never
 	}
 
@@ -930,7 +931,7 @@ class Preferences {
 
 	companion object {
 		enum class IgnoreDuplicates {
-			Consecutive, Any, Never
+			Consecutive, Any, AnyInDefaultGroup, Never
 		}
 
 		private const val PROFILE_EXPORT_TYPE = "binaryeye_profile"

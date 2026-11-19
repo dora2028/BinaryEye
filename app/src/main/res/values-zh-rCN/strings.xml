@@ -137,6 +137,7 @@
 	<string name="ignore_duplicates">忽略重复项</string>
 	<string name="ignore_consecutive_duplicates">不保存重复历史</string>
 	<string name="ignore_any_duplicates">Ignore any duplicates</string>
+	<string name="ignore_any_duplicates_default_group">仅检测默认分组内的重复项</string>
 	<string name="accept_duplicates">接受重复项</string>
 	<string name="ignore_codes">从历史记录中排除的代码</string>
 	<string name="ignore_codes_none">没有忽略的代码</string>
