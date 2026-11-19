@@ -34,6 +34,7 @@ class ScansAdapter(
 	cursor: Cursor?,
 	groups: List<ScanGroup>,
 	private val sortOrder: String,
+	private val limitGroups: Boolean,
 	private val expandedGroups: MutableSet<String>,
 	private val onPinClick: (Long, Boolean) -> Unit
 ) : BaseAdapter() {
@@ -96,8 +97,14 @@ class ScansAdapter(
 	fun headerKeyAt(position: Int): String? =
 		(rows.getOrNull(position) as? Row.Header)?.key
 
+	fun isArchiveHeader(position: Int): Boolean =
+		headerKeyAt(position) == ARCHIVE_KEY
+
 	fun isHeaderSelected(position: Int): Boolean {
 		val key = headerKeyAt(position) ?: return false
+		if (key == ARCHIVE_KEY) {
+			return false
+		}
 		return key in groupSelections
 	}
 
@@ -105,6 +112,10 @@ class ScansAdapter(
 	// ended up selected.
 	fun toggleGroupSelection(position: Int): Boolean {
 		val key = headerKeyAt(position) ?: return false
+		// The archive header holds groups, not scans.
+		if (key == ARCHIVE_KEY) {
+			return false
+		}
 		return if (key in groupSelections) {
 			groupSelections.remove(key)
 			false
@@ -119,7 +130,7 @@ class ScansAdapter(
 	fun selectAllGroups() {
 		groupSelections.clear()
 		rows.forEach { row ->
-			if (row is Row.Header) {
+			if (row is Row.Header && row.key != ARCHIVE_KEY) {
 				groupSelections.add(row.key)
 			}
 		}
@@ -145,7 +156,11 @@ class ScansAdapter(
 			expandedGroups.remove(header.key)
 			// Collapsed groups must not take part in selection, so drop any
 			// items that were selected while the group was still expanded.
-			removeSelections(header.key)
+			if (header.key == ARCHIVE_KEY) {
+				dropArchivedSelections()
+			} else {
+				removeSelections(header.key)
+			}
 		} else {
 			expandedGroups.add(header.key)
 		}
@@ -158,6 +173,7 @@ class ScansAdapter(
 	fun expandAll() {
 		expandedGroups.add(PINNED_GROUP_KEY)
 		expandedGroups.add(DEFAULT_GROUP_KEY)
+		expandedGroups.add(ARCHIVE_KEY)
 		groupById.keys.forEach { expandedGroups.add("group:$it") }
 		rebuildRows()
 		notifyDataSetChanged()
@@ -173,6 +189,7 @@ class ScansAdapter(
 	fun isAllExpanded(): Boolean =
 		PINNED_GROUP_KEY in expandedGroups &&
 			DEFAULT_GROUP_KEY in expandedGroups &&
+			(ARCHIVE_KEY in expandedGroups || archivedGroupCount() == 0) &&
 			groupById.keys.all { "group:$it" in expandedGroups }
 
 	fun select(view: View, id: Long, position: Int) {
@@ -269,21 +286,73 @@ class ScansAdapter(
 					.forEach { newRows.add(Row.Scan(it)) }
 			}
 		}
+		val grouped = groupedScans()
+		val custom = grouped.filter { it.first > 0L }
+		val visible = if (limitGroups) custom.take(GROUP_LIMIT) else custom
+		val archived = if (limitGroups) custom.drop(GROUP_LIMIT) else emptyList()
+		grouped.filter { it.first <= 0L }.forEach {
+			addGroupRows(newRows, it)
+		}
+		visible.forEach { addGroupRows(newRows, it) }
+		if (archived.isNotEmpty()) {
+			// Everything beyond the limit ends up in a single archive
+			// header at the very bottom.
+			newRows.add(
+				Row.Header(
+					ARCHIVE_KEY,
+					context.getString(R.string.archive_group),
+					archived.size
+				)
+			)
+			if (ARCHIVE_KEY in expandedGroups) {
+				archived.forEach { addGroupRows(newRows, it) }
+			}
+		}
+		rows = newRows
+	}
+
+	private fun addGroupRows(
+		rows: MutableList<Row>,
+		entry: Pair<Long, List<ScanItem>>
+	) {
+		val (groupId, items) = entry
+		val key = "group:$groupId"
+		rows.add(Row.Header(key, groupTitle(groupId), items.size))
+		if (key in expandedGroups) {
+			items.sortedByDescending { it.dateTime }
+				.forEach { rows.add(Row.Scan(it)) }
+		}
+	}
+
+	private fun groupedScans(): List<Pair<Long, List<ScanItem>>> =
 		scans.filter { !it.pinned }
 			.groupBy { it.groupId.takeIf { g -> g > 0L } ?: 0L }
 			.toList()
 			.sortedWith(groupComparator())
-			.forEach { (groupId, items) ->
-				val key = "group:$groupId"
-				newRows.add(
-					Row.Header(key, groupTitle(groupId), items.size)
-				)
-				if (key in expandedGroups) {
-					items.sortedByDescending { it.dateTime }
-						.forEach { newRows.add(Row.Scan(it)) }
-				}
+
+	// Number of custom groups that don't fit into the visible range.
+	private fun archivedGroupCount(): Int {
+		if (!limitGroups) {
+			return 0
+		}
+		val custom = groupedScans().count { it.first > 0L }
+		return (custom - GROUP_LIMIT).coerceAtLeast(0)
+	}
+
+	private fun dropArchivedSelections() {
+		val archivedIds = groupedScans()
+			.filter { it.first > 0L }
+			.drop(GROUP_LIMIT)
+			.map { it.first }
+			.toSet()
+		if (archivedIds.isEmpty()) {
+			return
+		}
+		scans.forEach { item ->
+			if (item.groupId in archivedIds) {
+				selections.remove(item.id)
 			}
-		rows = newRows
+		}
 	}
 
 	private fun groupComparator() =
@@ -564,6 +633,8 @@ class ScansAdapter(
 		const val VIEW_TYPE_SCAN = 1
 		const val NO_ID = -1L
 		const val PINNED_GROUP_KEY = "pinned"
+		const val ARCHIVE_KEY = "archive"
+		const val GROUP_LIMIT = 20
 		const val DEFAULT_GROUP_KEY = "group:0"
 	}
 }

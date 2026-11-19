@@ -154,6 +154,11 @@ class Preferences {
 			apply(GROUP_SORT_ORDER, value)
 			field = value
 		}
+	var limitGroups = true
+		set(value) {
+			apply(LIMIT_GROUPS, value)
+			field = value
+		}
 	var ignoreDuplicatesName = "ignore_consecutive_duplicates"
 		set(value) {
 			apply(IGNORE_DUPLICATES_NAME, value)
@@ -619,6 +624,7 @@ class Preferences {
 		)?.also {
 			groupSortOrder = it
 		}
+		limitGroups = preferences.getBoolean(LIMIT_GROUPS, limitGroups)
 
 		// Map old setting to new one if it wasn't on default value.
 		val ignoreConsecutiveDuplicates = "ignore_consecutive_duplicates"
@@ -1022,6 +1028,7 @@ class Preferences {
 		private const val USE_HISTORY = "use_history"
 		private const val EXPORT_DIRECTORY_URI = "export_directory_uri"
 		private const val GROUP_SORT_ORDER = "group_sort_order"
+		private const val LIMIT_GROUPS = "limit_groups"
 		private const val DEFAULT_GROUP_SORT_ORDER = "time_desc"
 		private const val IGNORE_DUPLICATES_NAME = "ignore_duplicates_name"
 		private const val DI_CODE_DETECTION = "di_code_detection"

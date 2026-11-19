@@ -295,6 +295,9 @@
 	<string name="collapse_all_groups">全部收纳</string>
 	<string name="filter_by_group">按分组筛选</string>
 	<string name="manage_groups">管理分组</string>
+	<string name="archive_group">存档</string>
+	<string name="show_all_groups">显示所有分组</string>
+	<string name="show_recent_groups">只显示最近20个分组</string>
 	<string name="sort_groups">分组排序</string>
 	<string name="sort_time_desc">时间（新→旧）</string>
 	<string name="sort_time_asc">时间（旧→新）</string>

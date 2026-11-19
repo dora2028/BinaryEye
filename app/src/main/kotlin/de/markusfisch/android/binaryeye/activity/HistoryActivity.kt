@@ -309,7 +309,10 @@ class HistoryActivity : AbstractBaseActivity() {
 			}
 		}
 		listView.setOnItemLongClickListener { _, v, position, id ->
-			if (scansAdapter?.isHeader(position) == true) {
+			if (scansAdapter?.isArchiveHeader(position) == true) {
+				// The archive header only groups other groups.
+				true
+			} else if (scansAdapter?.isHeader(position) == true) {
 				// Long-pressing a group header enters group multi-select and
 				// selects that group.
 				if (actionMode != null) {
@@ -574,6 +577,7 @@ class HistoryActivity : AbstractBaseActivity() {
 						cursor,
 						groups,
 						prefs.groupSortOrder,
+						prefs.limitGroups,
 						expandedGroups
 					) { id, pinned ->
 						if (actionMode == null) {
@@ -942,12 +946,25 @@ class HistoryActivity : AbstractBaseActivity() {
 		scope.launch {
 			val groups = sortedGroups(readGroups())
 			withContext(Dispatchers.Main) {
+				val limited = prefs.limitGroups
+				val listed = if (limited) {
+					groups.take(ScansAdapter.GROUP_LIMIT)
+				} else {
+					groups
+				}
 				val names = mutableListOf(
 					getString(R.string.new_group),
 					getString(R.string.sort_groups),
+					getString(
+						if (limited) {
+							R.string.show_all_groups
+						} else {
+							R.string.show_recent_groups
+						}
+					),
 					getString(R.string.group_other)
 				)
-				names.addAll(groups.map { it.name })
+				names.addAll(listed.map { it.name })
 				MaterialAlertDialogBuilder(this@HistoryActivity)
 					.setTitle(R.string.manage_groups)
 					.setItems(names.toTypedArray()) { _, which ->
@@ -955,10 +972,15 @@ class HistoryActivity : AbstractBaseActivity() {
 							which == 0 -> askToCreateGroup(groups)
 							which == 1 -> askToSetSortOrder()
 							which == 2 -> {
+								prefs.limitGroups = !limited
+								update()
+								askToManageGroups()
+							}
+							which == 3 -> {
 								groupFilter = 0L
 								update()
 							}
-							else -> askToEditGroup(groups[which - 3])
+							else -> askToEditGroup(listed[which - 4])
 						}
 					}
 					.show()

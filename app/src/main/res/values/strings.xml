@@ -312,6 +312,9 @@
 	<string name="collapse_all_groups">Collapse all groups</string>
 	<string name="filter_by_group">Filter by group</string>
 	<string name="manage_groups">Manage groups</string>
+	<string name="archive_group">Archive</string>
+	<string name="show_all_groups">Show all groups</string>
+	<string name="show_recent_groups">Show only the 20 most recent groups</string>
 	<string name="sort_groups">Sort groups</string>
 	<string name="sort_time_desc">Time (newest first)</string>
 	<string name="sort_time_asc">Time (oldest first)</string>
