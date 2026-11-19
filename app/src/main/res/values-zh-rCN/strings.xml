@@ -152,6 +152,9 @@
 	<string name="remark">备注</string>
 	<string name="di_code_remark_overwrite_message">该 DI码已有备注，是否用新的备注覆盖？</string>
 	<string name="di_code_remark_saved">备注已保存</string>
+	<string name="di_code_not_gs1">非GS1标准</string>
+	<string name="remark_added_to_history">备注已添加到历史记录</string>
+	<string name="history_empty">历史记录为空</string>
 	<string name="di_code_remarks">DI码备注</string>
 	<string name="di_code_remarks_none">无备注</string>
 	<string name="di_code_remarks_empty">历史记录里还没有 DI码</string>

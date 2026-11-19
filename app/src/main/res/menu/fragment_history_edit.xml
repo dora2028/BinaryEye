@@ -22,6 +22,11 @@
 		android:icon="@drawable/ic_action_edit"
 		material:showAsAction="ifRoom"/>
 	<item
+		android:id="@+id/add_remark"
+		android:title="@string/remark"
+		android:icon="@drawable/ic_action_edit"
+		material:showAsAction="always"/>
+	<item
 		android:id="@+id/assign_group"
 		android:title="@string/assign_to_group"
 		android:icon="@drawable/ic_label"
@@ -30,11 +35,6 @@
 		android:id="@+id/export_selected"
 		android:title="@string/export_selected_text"
 		android:icon="@drawable/ic_action_save"
-		material:showAsAction="ifRoom"/>
-	<item
-		android:id="@+id/add_remark"
-		android:title="@string/remark"
-		android:icon="@drawable/ic_action_edit"
 		material:showAsAction="ifRoom"/>
 	<item
 		android:id="@+id/remove_scan"

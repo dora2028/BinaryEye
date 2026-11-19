@@ -24,6 +24,7 @@ import de.markusfisch.android.binaryeye.adapter.prettifyFormatName
 import de.markusfisch.android.binaryeye.adapter.toFormatDescriptionResId
 import de.markusfisch.android.binaryeye.app.db
 import de.markusfisch.android.binaryeye.app.prefs
+import de.markusfisch.android.binaryeye.content.DiCode
 import de.markusfisch.android.binaryeye.content.diCodeLine
 import de.markusfisch.android.binaryeye.database.Scan
 import de.markusfisch.android.binaryeye.net.isEncodeDeeplink
@@ -358,13 +359,15 @@ class EncodeActivity : AbstractBaseActivity() {
 		supportActionBar?.setDisplayShowTitleEnabled(false)
 
 		findViewById<View>(R.id.remark_header).visibility = View.VISIBLE
-		val diCode = intent?.getStringExtra(EXTRA_DI_CODE)
-			?: db.getLastDiCode()
+		// The target may be any scan: without a DI code the remark is
+		// only added to the history and not bound to a DI code.
+		val content = intent?.getStringExtra(EXTRA_TARGET_CONTENT).orEmpty()
+		val diCode = DiCode.of(content)
 		remarkDiCode = diCode
 		val diCodeView = findViewById<TextView>(R.id.remark_di_code)
 		diCodeView.visibility = View.VISIBLE
 		diCodeView.text = if (diCode == null) {
-			getString(R.string.di_code_remarks_empty)
+			getString(R.string.di_code_not_gs1)
 		} else {
 			diCodeLine(diCode)
 		}
@@ -383,11 +386,6 @@ class EncodeActivity : AbstractBaseActivity() {
 	}
 
 	private fun applyRemark() {
-		val diCode = remarkDiCode
-		if (diCode == null) {
-			toast(R.string.di_code_remarks_empty)
-			return
-		}
 		val remark = when (val content = contentView.context.getContent()) {
 			is String -> content
 			is ByteArray -> String(content, Charsets.ISO_8859_1)
@@ -395,6 +393,11 @@ class EncodeActivity : AbstractBaseActivity() {
 		}.trim()
 		if (remark.isEmpty()) {
 			toast(R.string.error_no_content)
+			return
+		}
+		val diCode = remarkDiCode
+		if (diCode == null) {
+			saveRemark(null, remark)
 			return
 		}
 		val oldRemark = prefs.diCodeRemark(diCode)
@@ -425,8 +428,10 @@ class EncodeActivity : AbstractBaseActivity() {
 			.show()
 	}
 
-	private fun saveRemark(diCode: String, remark: String) {
-		prefs.setDiCodeRemark(diCode, remark)
+	private fun saveRemark(diCode: String?, remark: String) {
+		diCode?.let {
+			prefs.setDiCodeRemark(it, remark)
+		}
 		db.insertScan(
 			Scan(
 				text = remark,
@@ -434,7 +439,13 @@ class EncodeActivity : AbstractBaseActivity() {
 				format = writeableFormats[formatView.selectedItemPosition]
 			)
 		)
-		toast(R.string.di_code_remark_saved)
+		toast(
+			if (diCode == null) {
+				R.string.remark_added_to_history
+			} else {
+				R.string.di_code_remark_saved
+			}
+		)
 		finish()
 	}
 
@@ -473,7 +484,7 @@ class EncodeActivity : AbstractBaseActivity() {
 		private const val FORMAT = "format"
 		private const val EXECUTE = "execute"
 		const val EXTRA_REMARK_MODE = "remark_mode"
-		const val EXTRA_DI_CODE = "di_code"
+		const val EXTRA_TARGET_CONTENT = "target_content"
 		private const val PICK_FILE_RESULT_CODE = 1
 
 		fun <T> newIntent(

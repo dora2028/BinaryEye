@@ -838,10 +838,12 @@ class HistoryActivity : AbstractBaseActivity() {
 	 */
 	private fun askToAddDiCodeRemark(ids: List<Long> = emptyList()) {
 		scope.launch {
-			val diCode = db.getLastDiCode(ids)
+			// Any scan works as the target now: one without a DI code
+			// just doesn't update a DI code remark.
+			val content = db.getLastScanContent(ids)
 			withContext(Dispatchers.Main) {
-				if (diCode == null) {
-					toast(R.string.di_code_remarks_empty)
+				if (content == null) {
+					toast(R.string.history_empty)
 				} else {
 					startActivity(
 						Intent(
@@ -849,7 +851,10 @@ class HistoryActivity : AbstractBaseActivity() {
 							EncodeActivity::class.java
 						).apply {
 							putExtra(EncodeActivity.EXTRA_REMARK_MODE, true)
-							putExtra(EncodeActivity.EXTRA_DI_CODE, diCode)
+							putExtra(
+								EncodeActivity.EXTRA_TARGET_CONTENT,
+								content
+							)
 						}
 					)
 				}

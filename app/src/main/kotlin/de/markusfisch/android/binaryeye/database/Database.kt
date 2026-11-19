@@ -209,27 +209,26 @@ class Database {
 	}
 
 	/**
-	 * The DI code of the most recent scan that has one, or null.
-	 * When [ids] is given, only those scans are considered.
+	 * The content of the most recent scan, restricted to [ids] when
+	 * given, or null when there is no such scan. A scan without text
+	 * content (binary data) yields an empty string.
 	 */
-	fun getLastDiCode(ids: Collection<Long>? = null): String? {
+	fun getLastScanContent(ids: Collection<Long>? = null): String? {
 		val idFilter = if (ids.isNullOrEmpty()) {
 			""
 		} else {
-			"AND $SCANS_ID IN (${ids.joinToString(",")})"
+			"WHERE $SCANS_ID IN (${ids.joinToString(",")})"
 		}
 		return db.rawQuery(
 			"""SELECT $SCANS_TEXT
 				FROM $SCANS
-				WHERE $SCANS_TEXT LIKE '01%'
-					AND length($SCANS_TEXT) >= ${2 + DiCode.LENGTH}
-					$idFilter
+				$idFilter
 				ORDER BY $SCANS_ID DESC
 				LIMIT 1
 			""".trimMargin(), null
 		).use {
 			if (it.moveToFirst()) {
-				DiCode.of(it.getString(0) ?: "")
+				it.getString(0) ?: ""
 			} else {
 				null
 			}
