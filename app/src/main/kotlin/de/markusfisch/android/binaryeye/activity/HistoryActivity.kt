@@ -474,6 +474,11 @@ class HistoryActivity : AbstractBaseActivity() {
 				true
 			}
 
+			R.id.add_remark -> {
+				askToAddDiCodeRemark()
+				true
+			}
+
 			R.id.advanced_features -> {
 				askToShowAdvancedFeatures()
 				true
@@ -817,6 +822,25 @@ class HistoryActivity : AbstractBaseActivity() {
 					}
 					.show()
 			}
+		}
+	}
+
+	/**
+	 * Opens the barcode composer in remark mode for the DI code of the
+	 * most recent scan.
+	 */
+	private fun askToAddDiCodeRemark() {
+		scope.launch {
+			val diCode = withContext(Dispatchers.IO) { db.getLastDiCode() }
+			if (diCode == null) {
+				toast(R.string.di_code_remarks_empty)
+				return@launch
+			}
+			startActivity(
+				Intent(this@HistoryActivity, EncodeActivity::class.java).apply {
+					putExtra(EncodeActivity.EXTRA_REMARK_MODE, true)
+				}
+			)
 		}
 	}
 

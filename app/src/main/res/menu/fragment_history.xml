@@ -8,6 +8,11 @@
 		material:actionViewClass="androidx.appcompat.widget.SearchView"
 		material:showAsAction="collapseActionView|always"/>
 	<item
+		android:id="@+id/add_remark"
+		android:icon="@drawable/ic_action_edit"
+		android:title="@string/remark"
+		material:showAsAction="always"/>
+	<item
 		android:id="@+id/expand_collapse_all"
 		android:icon="@drawable/ic_action_unfold_more"
 		android:title="@string/expand_all_groups"

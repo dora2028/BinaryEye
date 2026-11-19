@@ -209,6 +209,25 @@ class Database {
 	}
 
 	/**
+	 * The DI code of the most recent scan that has one, or null.
+	 */
+	fun getLastDiCode(): String? = db.rawQuery(
+		"""SELECT $SCANS_TEXT
+			FROM $SCANS
+			WHERE $SCANS_TEXT LIKE '01%'
+				AND length($SCANS_TEXT) >= ${2 + DiCode.LENGTH}
+			ORDER BY $SCANS_ID DESC
+			LIMIT 1
+		""".trimMargin(), null
+	).use {
+		if (it.moveToFirst()) {
+			DiCode.of(it.getString(0) ?: "")
+		} else {
+			null
+		}
+	}
+
+	/**
 	 * All non-empty contents in chronological order, optionally
 	 * limited to scans that are still in the default group.
 	 */

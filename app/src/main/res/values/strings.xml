@@ -158,6 +158,9 @@
 	<string name="di_code_semi_auto_remark_all">DI code semi-auto remarks [all history]</string>
 	<string name="di_code_semi_auto_remark_done">Remarked %1$d DI codes</string>
 	<string name="di_code_semi_auto_remark_none">No DI code to remark</string>
+	<string name="remark">Remark</string>
+	<string name="di_code_remark_overwrite_message">This DI code already has a remark. Overwrite it with the new one?</string>
+	<string name="di_code_remark_saved">Remark saved</string>
 	<string name="di_code_remarks">DI code remarks</string>
 	<string name="di_code_remarks_none">No remark</string>
 	<string name="di_code_remarks_empty">No DI codes in the history yet</string>

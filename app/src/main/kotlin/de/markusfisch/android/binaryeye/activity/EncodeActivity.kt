@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
+import android.view.Gravity
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -15,11 +16,16 @@ import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
+import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.net.toUri
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import de.markusfisch.android.binaryeye.R
 import de.markusfisch.android.binaryeye.adapter.prettifyFormatName
 import de.markusfisch.android.binaryeye.adapter.toFormatDescriptionResId
+import de.markusfisch.android.binaryeye.app.db
 import de.markusfisch.android.binaryeye.app.prefs
+import de.markusfisch.android.binaryeye.content.diCodeLine
+import de.markusfisch.android.binaryeye.database.Scan
 import de.markusfisch.android.binaryeye.net.isEncodeDeeplink
 import de.markusfisch.android.binaryeye.text.unescape
 import de.markusfisch.android.binaryeye.view.hideSoftKeyboard
@@ -70,6 +76,9 @@ class EncodeActivity : AbstractBaseActivity() {
 	)
 
 	private var bytes: ByteArray? = null
+
+	private var remarkMode = false
+	private var remarkDiCode: String? = null
 
 	override fun onActivityResult(
 		requestCode: Int,
@@ -184,7 +193,15 @@ class EncodeActivity : AbstractBaseActivity() {
 		applyIntent(state == null)
 
 		findViewById<View>(R.id.encode).setOnClickListener {
-			it.context.encode()
+			if (remarkMode) {
+				applyRemark()
+			} else {
+				it.context.encode()
+			}
+		}
+
+		if (intent?.getBooleanExtra(EXTRA_REMARK_MODE, false) == true) {
+			enterRemarkMode()
 		}
 
 		findViewById<View>(R.id.inset_layout).setPaddingFromWindowInsets(bottom = false)
@@ -330,6 +347,96 @@ class EncodeActivity : AbstractBaseActivity() {
 		}
 	}
 
+	/**
+	 * Turns the composer into the DI code remark editor: no title in the
+	 * toolbar, a "compose barcode | remark" header with the DI code of
+	 * the most recent scan below it, and the compose button centered at
+	 * the bottom.
+	 */
+	private fun enterRemarkMode() {
+		remarkMode = true
+		supportActionBar?.setDisplayShowTitleEnabled(false)
+
+		findViewById<View>(R.id.remark_header).visibility = View.VISIBLE
+		val diCode = db.getLastDiCode()
+		remarkDiCode = diCode
+		val diCodeView = findViewById<TextView>(R.id.remark_di_code)
+		diCodeView.visibility = View.VISIBLE
+		diCodeView.text = if (diCode == null) {
+			getString(R.string.di_code_remarks_empty)
+		} else {
+			diCodeLine(diCode)
+		}
+
+		val encodeView = findViewById<View>(R.id.encode)
+		(encodeView.layoutParams as? CoordinatorLayout.LayoutParams)?.apply {
+			gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+			encodeView.layoutParams = this
+		}
+
+		val remark = diCode?.let { prefs.diCodeRemark(it) }
+		if (!remark.isNullOrEmpty()) {
+			contentView.setText(remark)
+			contentView.setSelection(remark.length)
+		}
+	}
+
+	private fun applyRemark() {
+		val diCode = remarkDiCode
+		if (diCode == null) {
+			toast(R.string.di_code_remarks_empty)
+			return
+		}
+		val remark = when (val content = contentView.context.getContent()) {
+			is String -> content
+			is ByteArray -> String(content, Charsets.ISO_8859_1)
+			else -> return
+		}.trim()
+		if (remark.isEmpty()) {
+			toast(R.string.error_no_content)
+			return
+		}
+		val oldRemark = prefs.diCodeRemark(diCode)
+		if (oldRemark.isNullOrEmpty()) {
+			saveRemark(diCode, remark)
+		} else {
+			askToOverwriteRemark(diCode, oldRemark, remark)
+		}
+	}
+
+	private fun askToOverwriteRemark(
+		diCode: String,
+		oldRemark: String,
+		remark: String
+	) {
+		val view = layoutInflater.inflate(
+			R.layout.dialog_remark_overwrite,
+			null
+		)
+		view.findViewById<TextView>(R.id.old_remark).text = oldRemark
+		MaterialAlertDialogBuilder(this)
+			.setTitle(R.string.di_code_remark_edit)
+			.setView(view)
+			.setPositiveButton(android.R.string.ok) { _, _ ->
+				saveRemark(diCode, remark)
+			}
+			.setNegativeButton(android.R.string.cancel, null)
+			.show()
+	}
+
+	private fun saveRemark(diCode: String, remark: String) {
+		prefs.setDiCodeRemark(diCode, remark)
+		db.insertScan(
+			Scan(
+				text = remark,
+				raw = null,
+				format = writeableFormats[formatView.selectedItemPosition]
+			)
+		)
+		toast(R.string.di_code_remark_saved)
+		finish()
+	}
+
 	private fun setEncodeByteArray() {
 		contentView.text = null
 		contentView.hint = getString(R.string.binary_data)
@@ -364,6 +471,7 @@ class EncodeActivity : AbstractBaseActivity() {
 		private const val CONTENT_RAW = "content_raw"
 		private const val FORMAT = "format"
 		private const val EXECUTE = "execute"
+		const val EXTRA_REMARK_MODE = "remark_mode"
 		private const val PICK_FILE_RESULT_CODE = 1
 
 		fun <T> newIntent(
