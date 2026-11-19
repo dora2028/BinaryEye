@@ -164,6 +164,15 @@
 	<string name="di_code_remark_hint">备注内容</string>
 	<string name="di_code_line">DI码 %1$s</string>
 	<string name="di_code_line_with_remark">DI码 %1$s [%2$s]</string>
+	<string name="di_code_line_count">DI码 %1$s x%2$d</string>
+	<string name="di_code_line_count_with_remark">DI码 %1$s x%2$d [%3$s]</string>
+	<string name="di_code_counting_on">默认分组DI码计数：已开启</string>
+	<string name="di_code_counting_off">默认分组DI码计数：已关闭</string>
+	<string name="temp_remark">临时备注</string>
+	<string name="temp_remark_label">%1$s x%2$d</string>
+	<string name="temp_remark_added">已添加：%1$s</string>
+	<string name="temp_remark_no_di_code">默认分组里还没有带 DI码的条码，请先手动备注后重试。</string>
+	<string name="temp_remark_no_remark">该 DI码还没有备注，请先手动备注后重试。</string>
 	<plurals name="ignore_codes_count">
 		<item quantity="one">%d 个忽略的代码</item>
 		<item quantity="other">%d 个忽略的代码</item>

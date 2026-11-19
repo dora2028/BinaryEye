@@ -67,14 +67,59 @@ object DiCode {
 }
 
 /**
- * The line to show for [diCode]: the DI code itself and, if there is
- * one, its remark in brackets.
+ * One entry per scan that carries a DI code, with the number of times
+ * that DI code occurred in a row.
  */
-fun Context.diCodeLine(diCode: String): String {
+data class DiCodeCount(
+	val id: Long,
+	val diCode: String,
+	val count: Int
+)
+
+/**
+ * Counts occurrences in [records] (id/content pairs, oldest first):
+ * consecutive scans with the same DI code count up 1, 2, 3, … and a
+ * different DI code starts over at 1. Scans without a DI code are
+ * skipped and don't reset the run.
+ */
+fun DiCode.counts(records: List<Pair<Long, String>>): List<DiCodeCount> {
+	val counts = mutableListOf<DiCodeCount>()
+	var lastCode: String? = null
+	var count = 0
+	records.forEach { (id, content) ->
+		val diCode = of(content) ?: return@forEach
+		if (diCode == lastCode) {
+			count++
+		} else {
+			lastCode = diCode
+			count = 1
+		}
+		counts.add(DiCodeCount(id, diCode, count))
+	}
+	return counts
+}
+
+/**
+ * The line to show for [diCode]: the DI code itself, the occurrence
+ * count when given and, if there is one, its remark in brackets.
+ */
+fun Context.diCodeLine(diCode: String, count: Int? = null): String {
 	val remark = prefs.diCodeRemark(diCode)
-	return if (remark.isNullOrEmpty()) {
-		getString(R.string.di_code_line, diCode)
-	} else {
-		getString(R.string.di_code_line_with_remark, diCode, remark)
+	return when {
+		remark.isNullOrEmpty() && count == null ->
+			getString(R.string.di_code_line, diCode)
+
+		remark.isNullOrEmpty() ->
+			getString(R.string.di_code_line_count, diCode, count ?: 0)
+
+		count == null ->
+			getString(R.string.di_code_line_with_remark, diCode, remark)
+
+		else -> getString(
+			R.string.di_code_line_count_with_remark,
+			diCode,
+			count,
+			remark
+		)
 	}
 }

@@ -236,6 +236,29 @@ class Database {
 	}
 
 	/**
+	 * Id/content pairs of all scans in the default (ungrouped) group
+	 * that could carry a DI code, oldest first.
+	 */
+	fun getDefaultGroupDiContents(): List<Pair<Long, String>> = db.rawQuery(
+		"""SELECT $SCANS_ID, $SCANS_TEXT
+			FROM $SCANS
+			WHERE ($SCANS_GROUP_ID IS NULL OR $SCANS_GROUP_ID = 0)
+				AND $SCANS_TEXT LIKE '01%'
+				AND length($SCANS_TEXT) >= ${2 + DiCode.LENGTH}
+			ORDER BY $SCANS_ID ASC
+		""".trimMargin(), null
+	).use {
+		val records = mutableListOf<Pair<Long, String>>()
+		while (it.moveToNext()) {
+			val content = it.getString(1)
+			if (!content.isNullOrEmpty()) {
+				records.add(it.getLong(0) to content)
+			}
+		}
+		records
+	}
+
+	/**
 	 * All non-empty contents in chronological order, optionally
 	 * limited to scans that are still in the default group.
 	 */

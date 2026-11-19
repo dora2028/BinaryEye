@@ -18,6 +18,7 @@ import de.markusfisch.android.binaryeye.R
 import de.markusfisch.android.binaryeye.app.prefs
 import de.markusfisch.android.binaryeye.content.DiCode
 import de.markusfisch.android.binaryeye.content.ParsedContentType
+import de.markusfisch.android.binaryeye.content.counts
 import de.markusfisch.android.binaryeye.content.diCodeLine
 import de.markusfisch.android.binaryeye.content.getContentPreview
 import de.markusfisch.android.binaryeye.content.parsedContentTypeFromName
@@ -44,6 +45,7 @@ class ScansAdapter(
 	private val groupById = groups.associateBy { it.id }
 
 	private val scans = mutableListOf<ScanItem>()
+	private var diCodeCounts: Map<Long, Int> = emptyMap()
 	private val selections = mutableSetOf<Long>()
 	private val groupSelections = mutableSetOf<String>()
 	private var rows = emptyList<Row>()
@@ -83,6 +85,15 @@ class ScansAdapter(
 					)
 				)
 			}
+		}
+		diCodeCounts = if (prefs.diCodeCounting) {
+			DiCode.counts(
+				scans.filter { it.groupId <= 0L }
+					.sortedBy { it.id }
+					.map { it.id to it.text }
+			).associate { it.id to it.count }
+		} else {
+			emptyMap()
 		}
 		rebuildRows()
 		notifyDataSetChanged()
@@ -520,7 +531,10 @@ class ScansAdapter(
 		if (diCode == null) {
 			holder.diCodeView.visibility = View.GONE
 		} else {
-			holder.diCodeView.text = context.diCodeLine(diCode)
+			holder.diCodeView.text = context.diCodeLine(
+				diCode,
+				diCodeCounts[item.id]
+			)
 			holder.diCodeView.visibility = View.VISIBLE
 		}
 		val group = item.groupId.takeIf { it > 0L }?.let { groupById[it] }

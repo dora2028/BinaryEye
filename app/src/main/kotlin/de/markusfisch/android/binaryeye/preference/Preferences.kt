@@ -171,6 +171,11 @@ class Preferences {
 			apply(DI_CODE_DETECTION, value)
 			field = value
 		}
+	var diCodeCounting = false
+		set(value) {
+			apply(DI_CODE_COUNTING, value)
+			field = value
+		}
 	var diCodeRemarks: Map<String, String> = emptyMap()
 		private set
 	var copyImmediately = false
@@ -651,6 +656,10 @@ class Preferences {
 			DI_CODE_DETECTION,
 			diCodeDetection
 		)
+		diCodeCounting = preferences.getBoolean(
+			DI_CODE_COUNTING,
+			diCodeCounting
+		)
 		diCodeRemarks = diCodeRemarksFromJson(
 			preferences.getString(DI_CODE_REMARKS, null) ?: "{}"
 		)
@@ -1033,6 +1042,7 @@ class Preferences {
 		private const val IGNORE_DUPLICATES_NAME = "ignore_duplicates_name"
 		private const val DI_CODE_DETECTION = "di_code_detection"
 		private const val DI_CODE_REMARKS = "di_code_remarks"
+		private const val DI_CODE_COUNTING = "di_code_counting"
 		private const val IGNORE_CODES = "ignore_codes"
 		private const val OPEN_IMMEDIATELY = "open_immediately"
 		private const val STRIP_TRACKING_PARAMS = "strip_tracking_params"

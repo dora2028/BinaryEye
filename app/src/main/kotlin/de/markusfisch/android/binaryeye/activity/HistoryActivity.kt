@@ -34,6 +34,7 @@ import de.markusfisch.android.binaryeye.app.db
 import de.markusfisch.android.binaryeye.app.hasWritePermission
 import de.markusfisch.android.binaryeye.app.prefs
 import de.markusfisch.android.binaryeye.content.DiCode
+import de.markusfisch.android.binaryeye.content.counts
 import de.markusfisch.android.binaryeye.content.copyToClipboard
 import de.markusfisch.android.binaryeye.content.shareAsFile
 import de.markusfisch.android.binaryeye.content.shareText
@@ -489,6 +490,11 @@ class HistoryActivity : AbstractBaseActivity() {
 				true
 			}
 
+			R.id.temp_remark -> {
+				addTemporaryRemark()
+				true
+			}
+
 			R.id.advanced_features -> {
 				askToShowAdvancedFeatures()
 				true
@@ -867,18 +873,90 @@ class HistoryActivity : AbstractBaseActivity() {
 	}
 
 	/**
+	 * Labels the most recent scan of the default group that carries a
+	 * DI code with "<remark> x<count>", where count is how often that
+	 * DI code occurred in a row.
+	 */
+	private fun addTemporaryRemark() {
+		scope.launch {
+			val records = db.getDefaultGroupDiContents()
+			val target = DiCode.counts(records).lastOrNull()
+			val targetContent = target?.let { count ->
+				records.firstOrNull { it.first == count.id }?.second
+			}
+			val remark = target?.let { prefs.diCodeRemark(it.diCode) }
+			val anyContent = if (target == null) db.getLastScanContent() else null
+			withContext(Dispatchers.Main) {
+				if (target == null) {
+					askToRemarkManually(anyContent, hasDiCode = false)
+					return@withContext
+				}
+				if (remark.isNullOrEmpty()) {
+					askToRemarkManually(targetContent, hasDiCode = true)
+					return@withContext
+				}
+				val label = getString(
+					R.string.temp_remark_label,
+					remark,
+					target.count
+				)
+				db.renameScan(target.id, label)
+				toast(getString(R.string.temp_remark_added, label))
+				update()
+			}
+		}
+	}
+
+	private fun askToRemarkManually(content: String?, hasDiCode: Boolean) {
+		MaterialAlertDialogBuilder(this)
+			.setMessage(
+				if (hasDiCode) {
+					R.string.temp_remark_no_remark
+				} else {
+					R.string.temp_remark_no_di_code
+				}
+			)
+			.setPositiveButton(R.string.remark) { _, _ ->
+				openRemarkComposer(content)
+			}
+			.setNegativeButton(android.R.string.cancel, null)
+			.show()
+	}
+
+	private fun openRemarkComposer(content: String?) {
+		if (content == null) {
+			toast(R.string.history_empty)
+			return
+		}
+		startActivity(
+			Intent(this, EncodeActivity::class.java).apply {
+				putExtra(EncodeActivity.EXTRA_REMARK_MODE, true)
+				putExtra(EncodeActivity.EXTRA_TARGET_CONTENT, content)
+			}
+		)
+	}
+
+	/**
 	 * The DI code switch and the DI code remarks live behind the
 	 * overflow menu of the history so they are only a tap away from
 	 * the list they affect.
 	 */
 	private fun askToShowAdvancedFeatures() {
 		val detection = prefs.diCodeDetection
+		val counting = prefs.diCodeCounting
 		val items = arrayOf(
 			getString(
 				if (detection) {
 					R.string.di_code_detection_on
 				} else {
 					R.string.di_code_detection_off
+				}
+			),
+			getString(
+				if (counting) {
+					R.string.di_code_counting_on
+				} else {
+					R.string.di_code_counting_off
 				}
 			),
 			getString(R.string.di_code_semi_auto_remark_default),
@@ -894,15 +972,20 @@ class HistoryActivity : AbstractBaseActivity() {
 						update()
 					}
 
-					1 -> applySemiAutoDiCodeRemarks(
+					1 -> {
+						prefs.diCodeCounting = !counting
+						update()
+					}
+
+					2 -> applySemiAutoDiCodeRemarks(
 						onlyDefaultGroup = true
 					)
 
-					2 -> applySemiAutoDiCodeRemarks(
+					3 -> applySemiAutoDiCodeRemarks(
 						onlyDefaultGroup = false
 					)
 
-					3 -> startActivity(
+					4 -> startActivity(
 						Intent(this, DiCodeRemarksActivity::class.java)
 					)
 				}

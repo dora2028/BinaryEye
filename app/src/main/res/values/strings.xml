@@ -173,6 +173,15 @@
 	<string name="di_code_remark_hint">Remark</string>
 	<string name="di_code_line">DI code %1$s</string>
 	<string name="di_code_line_with_remark">DI code %1$s [%2$s]</string>
+	<string name="di_code_line_count">DI code %1$s x%2$d</string>
+	<string name="di_code_line_count_with_remark">DI code %1$s x%2$d [%3$s]</string>
+	<string name="di_code_counting_on">DI code counting: on</string>
+	<string name="di_code_counting_off">DI code counting: off</string>
+	<string name="temp_remark">Temporary remark</string>
+	<string name="temp_remark_label">%1$s x%2$d</string>
+	<string name="temp_remark_added">Added: %1$s</string>
+	<string name="temp_remark_no_di_code">No scan with a DI code in the default group yet. Remark one manually and try again.</string>
+	<string name="temp_remark_no_remark">This DI code has no remark yet. Remark it manually and try again.</string>
 	<plurals name="ignore_codes_count">
 		<item quantity="one">%d ignored code</item>
 		<item quantity="other">%d ignored codes</item>
