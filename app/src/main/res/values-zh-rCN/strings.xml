@@ -157,6 +157,8 @@
 	<string name="history_empty">历史记录为空</string>
 	<string name="di_code_remarks">DI码备注</string>
 	<string name="di_code_remarks_none">无备注</string>
+	<string name="search_di_code_remarks">搜索 DI码或备注</string>
+	<string name="di_code_remarks_no_match">没有匹配的 DI码</string>
 	<string name="di_code_remarks_empty">历史记录里还没有 DI码</string>
 	<string name="di_code_remark_edit">该 DI码的备注</string>
 	<string name="di_code_remark_hint">备注内容</string>

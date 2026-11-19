@@ -166,6 +166,8 @@
 	<string name="history_empty">The history is empty</string>
 	<string name="di_code_remarks">DI code remarks</string>
 	<string name="di_code_remarks_none">No remark</string>
+	<string name="search_di_code_remarks">Search DI codes and remarks</string>
+	<string name="di_code_remarks_no_match">No matching DI code</string>
 	<string name="di_code_remarks_empty">No DI codes in the history yet</string>
 	<string name="di_code_remark_edit">Remark for this DI code</string>
 	<string name="di_code_remark_hint">Remark</string>
