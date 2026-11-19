@@ -5,40 +5,40 @@
 		android:id="@+id/select_all"
 		android:title="@string/select_all"
 		android:icon="@drawable/ic_action_select_all"
-		material:showAsAction="ifRoom"/>
+		material:showAsAction="always"/>
 	<item
 		android:id="@+id/invert_selection"
 		android:title="@string/invert_selection"
 		android:icon="@drawable/ic_action_invert_selection"
-		material:showAsAction="ifRoom"/>
+		material:showAsAction="always"/>
 	<item
 		android:id="@+id/add_remark"
 		android:title="@string/remark"
 		android:icon="@drawable/ic_action_remark"
-		material:showAsAction="ifRoom"/>
+		material:showAsAction="always"/>
 	<item
 		android:id="@+id/copy_scan"
 		android:title="@string/copy_scan"
 		android:icon="@drawable/ic_action_copy"
-		material:showAsAction="ifRoom"/>
+		material:showAsAction="never"/>
 	<item
 		android:id="@+id/edit_label"
 		android:title="@string/edit_label"
 		android:icon="@drawable/ic_action_edit"
-		material:showAsAction="ifRoom"/>
+		material:showAsAction="never"/>
 	<item
 		android:id="@+id/assign_group"
 		android:title="@string/assign_to_group"
 		android:icon="@drawable/ic_label"
-		material:showAsAction="ifRoom"/>
+		material:showAsAction="never"/>
 	<item
 		android:id="@+id/export_selected"
 		android:title="@string/export_selected_text"
 		android:icon="@drawable/ic_action_save"
-		material:showAsAction="ifRoom"/>
+		material:showAsAction="never"/>
 	<item
 		android:id="@+id/remove_scan"
 		android:title="@string/remove_scan"
 		android:icon="@drawable/ic_action_remove"
-		material:showAsAction="ifRoom"/>
+		material:showAsAction="never"/>
 </menu>
