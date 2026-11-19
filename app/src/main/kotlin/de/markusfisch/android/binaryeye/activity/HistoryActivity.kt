@@ -838,19 +838,22 @@ class HistoryActivity : AbstractBaseActivity() {
 	 */
 	private fun askToAddDiCodeRemark(ids: List<Long> = emptyList()) {
 		scope.launch {
-			val diCode = withContext(Dispatchers.IO) {
-				db.getLastDiCode(ids)
-			}
-			if (diCode == null) {
-				toast(R.string.di_code_remarks_empty)
-				return@launch
-			}
-			startActivity(
-				Intent(this@HistoryActivity, EncodeActivity::class.java).apply {
-					putExtra(EncodeActivity.EXTRA_REMARK_MODE, true)
-					putExtra(EncodeActivity.EXTRA_DI_CODE, diCode)
+			val diCode = db.getLastDiCode(ids)
+			withContext(Dispatchers.Main) {
+				if (diCode == null) {
+					toast(R.string.di_code_remarks_empty)
+				} else {
+					startActivity(
+						Intent(
+							this@HistoryActivity,
+							EncodeActivity::class.java
+						).apply {
+							putExtra(EncodeActivity.EXTRA_REMARK_MODE, true)
+							putExtra(EncodeActivity.EXTRA_DI_CODE, diCode)
+						}
+					)
 				}
-			)
+			}
 		}
 	}
 
@@ -899,32 +902,34 @@ class HistoryActivity : AbstractBaseActivity() {
 	}
 
 	/**
-	 * Walks the history once and remarks every DI code that is followed
-	 * by a non-DI entry and that has no remark yet. Meant to be run on
-	 * demand, not on every scan.
+	 * Walks the history once (on demand, never while scanning) and
+	 * remarks every DI code that is followed by a non-DI entry and that
+	 * has no remark yet.
 	 */
 	private fun applySemiAutoDiCodeRemarks(onlyDefaultGroup: Boolean) {
 		scope.launch {
-			val contents = withContext(Dispatchers.IO) {
-				db.getScanContents(onlyDefaultGroup)
-			}
-			val remarks = DiCode.remarksFor(contents) {
-				prefs.diCodeRemark(it) != null
-			}
-			if (remarks.isNotEmpty()) {
-				prefs.setDiCodeRemarks(remarks)
-			}
-			toast(
-				if (remarks.isEmpty()) {
-					getString(R.string.di_code_semi_auto_remark_none)
-				} else {
-					getString(
-						R.string.di_code_semi_auto_remark_done,
-						remarks.size
-					)
+			val contents = db.getScanContents(onlyDefaultGroup)
+			// Everything below touches preferences and UI, so it has to
+			// happen on the main thread: scope runs on Dispatchers.IO.
+			withContext(Dispatchers.Main) {
+				val remarks = DiCode.remarksFor(contents) {
+					prefs.diCodeRemark(it) != null
 				}
-			)
-			update()
+				if (remarks.isNotEmpty()) {
+					prefs.setDiCodeRemarks(remarks)
+				}
+				toast(
+					if (remarks.isEmpty()) {
+						getString(R.string.di_code_semi_auto_remark_none)
+					} else {
+						getString(
+							R.string.di_code_semi_auto_remark_done,
+							remarks.size
+						)
+					}
+				)
+				update()
+			}
 		}
 	}
 
