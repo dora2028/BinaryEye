@@ -210,20 +210,29 @@ class Database {
 
 	/**
 	 * The DI code of the most recent scan that has one, or null.
+	 * When [ids] is given, only those scans are considered.
 	 */
-	fun getLastDiCode(): String? = db.rawQuery(
-		"""SELECT $SCANS_TEXT
-			FROM $SCANS
-			WHERE $SCANS_TEXT LIKE '01%'
-				AND length($SCANS_TEXT) >= ${2 + DiCode.LENGTH}
-			ORDER BY $SCANS_ID DESC
-			LIMIT 1
-		""".trimMargin(), null
-	).use {
-		if (it.moveToFirst()) {
-			DiCode.of(it.getString(0) ?: "")
+	fun getLastDiCode(ids: Collection<Long>? = null): String? {
+		val idFilter = if (ids.isNullOrEmpty()) {
+			""
 		} else {
-			null
+			"AND $SCANS_ID IN (${ids.joinToString(",")})"
+		}
+		return db.rawQuery(
+			"""SELECT $SCANS_TEXT
+				FROM $SCANS
+				WHERE $SCANS_TEXT LIKE '01%'
+					AND length($SCANS_TEXT) >= ${2 + DiCode.LENGTH}
+					$idFilter
+				ORDER BY $SCANS_ID DESC
+				LIMIT 1
+			""".trimMargin(), null
+		).use {
+			if (it.moveToFirst()) {
+				DiCode.of(it.getString(0) ?: "")
+			} else {
+				null
+			}
 		}
 	}
 

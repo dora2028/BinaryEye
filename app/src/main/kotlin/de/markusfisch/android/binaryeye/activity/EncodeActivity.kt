@@ -358,7 +358,8 @@ class EncodeActivity : AbstractBaseActivity() {
 		supportActionBar?.setDisplayShowTitleEnabled(false)
 
 		findViewById<View>(R.id.remark_header).visibility = View.VISIBLE
-		val diCode = db.getLastDiCode()
+		val diCode = intent?.getStringExtra(EXTRA_DI_CODE)
+			?: db.getLastDiCode()
 		remarkDiCode = diCode
 		val diCodeView = findViewById<TextView>(R.id.remark_di_code)
 		diCodeView.visibility = View.VISIBLE
@@ -472,6 +473,7 @@ class EncodeActivity : AbstractBaseActivity() {
 		private const val FORMAT = "format"
 		private const val EXECUTE = "execute"
 		const val EXTRA_REMARK_MODE = "remark_mode"
+		const val EXTRA_DI_CODE = "di_code"
 		private const val PICK_FILE_RESULT_CODE = 1
 
 		fun <T> newIntent(
