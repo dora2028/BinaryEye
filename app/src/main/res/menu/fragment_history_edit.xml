@@ -12,6 +12,11 @@
 		android:icon="@drawable/ic_action_invert_selection"
 		material:showAsAction="ifRoom"/>
 	<item
+		android:id="@+id/add_remark"
+		android:title="@string/remark"
+		android:icon="@drawable/ic_action_remark"
+		material:showAsAction="ifRoom"/>
+	<item
 		android:id="@+id/copy_scan"
 		android:title="@string/copy_scan"
 		android:icon="@drawable/ic_action_copy"
@@ -21,11 +26,6 @@
 		android:title="@string/edit_label"
 		android:icon="@drawable/ic_action_edit"
 		material:showAsAction="ifRoom"/>
-	<item
-		android:id="@+id/add_remark"
-		android:title="@string/remark"
-		android:icon="@drawable/ic_action_edit"
-		material:showAsAction="always"/>
 	<item
 		android:id="@+id/assign_group"
 		android:title="@string/assign_to_group"

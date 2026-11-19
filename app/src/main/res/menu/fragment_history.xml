@@ -9,7 +9,7 @@
 		material:showAsAction="collapseActionView|always"/>
 	<item
 		android:id="@+id/add_remark"
-		android:icon="@drawable/ic_action_edit"
+		android:icon="@drawable/ic_action_remark"
 		android:title="@string/remark"
 		material:showAsAction="always"/>
 	<item
