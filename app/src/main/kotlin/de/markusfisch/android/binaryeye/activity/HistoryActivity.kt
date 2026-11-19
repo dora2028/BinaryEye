@@ -33,6 +33,7 @@ import de.markusfisch.android.binaryeye.app.alertDialog
 import de.markusfisch.android.binaryeye.app.db
 import de.markusfisch.android.binaryeye.app.hasWritePermission
 import de.markusfisch.android.binaryeye.app.prefs
+import de.markusfisch.android.binaryeye.content.DiCode
 import de.markusfisch.android.binaryeye.content.copyToClipboard
 import de.markusfisch.android.binaryeye.content.shareAsFile
 import de.markusfisch.android.binaryeye.content.shareText
@@ -826,7 +827,6 @@ class HistoryActivity : AbstractBaseActivity() {
 	 */
 	private fun askToShowAdvancedFeatures() {
 		val detection = prefs.diCodeDetection
-		val autoRemark = prefs.diCodeAutoRemark
 		val items = arrayOf(
 			getString(
 				if (detection) {
@@ -835,13 +835,8 @@ class HistoryActivity : AbstractBaseActivity() {
 					R.string.di_code_detection_off
 				}
 			),
-			getString(
-				if (autoRemark) {
-					R.string.di_code_auto_remark_on
-				} else {
-					R.string.di_code_auto_remark_off
-				}
-			),
+			getString(R.string.di_code_semi_auto_remark_default),
+			getString(R.string.di_code_semi_auto_remark_all),
 			getString(R.string.di_code_remarks)
 		)
 		MaterialAlertDialogBuilder(this)
@@ -853,23 +848,50 @@ class HistoryActivity : AbstractBaseActivity() {
 						update()
 					}
 
-					1 -> {
-						prefs.diCodeAutoRemark = !autoRemark
-						toast(
-							if (autoRemark) {
-								R.string.di_code_auto_remark_off
-							} else {
-								R.string.di_code_auto_remark_on
-							}
-						)
-					}
+					1 -> applySemiAutoDiCodeRemarks(
+						onlyDefaultGroup = true
+					)
 
-					2 -> startActivity(
+					2 -> applySemiAutoDiCodeRemarks(
+						onlyDefaultGroup = false
+					)
+
+					3 -> startActivity(
 						Intent(this, DiCodeRemarksActivity::class.java)
 					)
 				}
 			}
 			.show()
+	}
+
+	/**
+	 * Walks the history once and remarks every DI code that is followed
+	 * by a non-DI entry and that has no remark yet. Meant to be run on
+	 * demand, not on every scan.
+	 */
+	private fun applySemiAutoDiCodeRemarks(onlyDefaultGroup: Boolean) {
+		scope.launch {
+			val contents = withContext(Dispatchers.IO) {
+				db.getScanContents(onlyDefaultGroup)
+			}
+			val remarks = DiCode.remarksFor(contents) {
+				prefs.diCodeRemark(it) != null
+			}
+			if (remarks.isNotEmpty()) {
+				prefs.setDiCodeRemarks(remarks)
+			}
+			toast(
+				if (remarks.isEmpty()) {
+					getString(R.string.di_code_semi_auto_remark_none)
+				} else {
+					getString(
+						R.string.di_code_semi_auto_remark_done,
+						remarks.size
+					)
+				}
+			)
+			update()
+		}
 	}
 
 	private fun askToManageGroups() {

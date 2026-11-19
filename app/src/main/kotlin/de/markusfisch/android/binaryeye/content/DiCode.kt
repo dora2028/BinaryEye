@@ -42,6 +42,28 @@ object DiCode {
 		}.trim()
 		return remark.ifEmpty { null }
 	}
+
+	/**
+	 * Walks [contents] (chronological order) and returns a remark for
+	 * every DI code that is followed by a non-DI entry and that has no
+	 * remark yet, according to [hasRemark].
+	 */
+	fun remarksFor(
+		contents: List<String>,
+		hasRemark: (String) -> Boolean
+	): Map<String, String> {
+		val remarks = LinkedHashMap<String, String>()
+		contents.forEachIndexed { index, content ->
+			val diCode = of(content) ?: return@forEachIndexed
+			if (remarks.containsKey(diCode) || hasRemark(diCode)) {
+				return@forEachIndexed
+			}
+			val remark = contents.getOrNull(index + 1)
+				?.let { remarkOf(it) } ?: return@forEachIndexed
+			remarks[diCode] = remark
+		}
+		return remarks
+	}
 }
 
 /**

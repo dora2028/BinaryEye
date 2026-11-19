@@ -145,8 +145,10 @@
 	<string name="advanced_features">高级功能</string>
 	<string name="di_code_detection_on">DI码识别：已开启</string>
 	<string name="di_code_detection_off">DI码识别：已关闭</string>
-	<string name="di_code_auto_remark_on">DI码自动备注：已开启</string>
-	<string name="di_code_auto_remark_off">DI码自动备注：已关闭</string>
+	<string name="di_code_semi_auto_remark_default">DI码半自动备注[默认分组历史]</string>
+	<string name="di_code_semi_auto_remark_all">DI码半自动备注[全历史]</string>
+	<string name="di_code_semi_auto_remark_done">已为 %1$d 个 DI码添加备注</string>
+	<string name="di_code_semi_auto_remark_none">没有需要备注的 DI码</string>
 	<string name="di_code_remarks">DI码备注</string>
 	<string name="di_code_remarks_none">无备注</string>
 	<string name="di_code_remarks_empty">历史记录里还没有 DI码</string>

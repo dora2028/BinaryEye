@@ -208,6 +208,34 @@ class Database {
 		codes
 	}
 
+	/**
+	 * All non-empty contents in chronological order, optionally
+	 * limited to scans that are still in the default group.
+	 */
+	fun getScanContents(onlyDefaultGroup: Boolean = false): List<String> {
+		val where = if (onlyDefaultGroup) {
+			"WHERE $SCANS_GROUP_ID IS NULL OR $SCANS_GROUP_ID = 0"
+		} else {
+			""
+		}
+		return db.rawQuery(
+			"""SELECT $SCANS_TEXT
+				FROM $SCANS
+				$where
+				ORDER BY $SCANS_ID ASC
+			""".trimMargin(), null
+		).use {
+			val contents = mutableListOf<String>()
+			while (it.moveToNext()) {
+				val content = it.getString(0)
+				if (!content.isNullOrEmpty()) {
+					contents.add(content)
+				}
+			}
+			contents
+		}
+	}
+
 	fun getScan(id: Long): Scan? = db.rawQuery(
 		"""SELECT
 			$SCANS_ID,
@@ -269,13 +297,6 @@ class Database {
 	}
 
 	fun insertScan(scan: Scan): Long {
-		// The entry before this one may carry a DI code that can be
-		// remarked with the content of this very scan.
-		val previousContent = if (prefs.diCodeAutoRemark) {
-			getLastScanContent()
-		} else {
-			null
-		}
 		when (prefs.ignoreDuplicates()) {
 			Preferences.Companion.IgnoreDuplicates.Consecutive -> {
 				val id = getIdOfLastScan(
@@ -310,7 +331,7 @@ class Database {
 
 			else -> Unit
 		}
-		val id = db.insert(
+		return db.insert(
 			SCANS,
 			null,
 			ContentValues().apply {
@@ -344,10 +365,6 @@ class Database {
 				)
 			}
 		)
-		previousContent?.let {
-			autoRemarkDiCode(it, scan.text)
-		}
-		return id
 	}
 
 	private fun getIdOfLastScan(
@@ -376,33 +393,6 @@ class Database {
 		} else {
 			0L
 		}
-	}
-
-	private fun getLastScanContent(): String? = db.rawQuery(
-		"""SELECT $SCANS_TEXT
-			FROM $SCANS
-			ORDER BY $SCANS_ID DESC
-			LIMIT 1
-		""".trimMargin(), null
-	).use {
-		if (it.moveToFirst()) {
-			it.getString(0)
-		} else {
-			null
-		}
-	}
-
-	/**
-	 * If [previous] is a DI code without a remark yet and [current] is
-	 * anything else, remark that DI code with [current].
-	 */
-	private fun autoRemarkDiCode(previous: String, current: String) {
-		val diCode = DiCode.of(previous) ?: return
-		// Only remark DI codes that have no remark yet.
-		if (prefs.diCodeRemark(diCode) != null) {
-			return
-		}
-		prefs.setDiCodeRemark(diCode, DiCode.remarkOf(current) ?: return)
 	}
 
 	private fun getIdOfScanByContent(
