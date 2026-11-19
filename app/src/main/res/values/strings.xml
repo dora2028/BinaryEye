@@ -151,12 +151,10 @@
 	<string name="ignore_codes">Codes to exclude from history</string>
 	<string name="ignore_codes_none">No ignored codes</string>
 	<string name="ignore_codes_empty">No ignored codes yet</string>
-	<string name="advanced_category">Advanced features</string>
-	<string name="di_code_detection">DI code detection</string>
-	<string name="di_code_detection_summary">Show the 14 digits behind a leading "01" as the DI code</string>
+	<string name="advanced_features">Advanced features</string>
+	<string name="di_code_detection_on">DI code detection: on</string>
+	<string name="di_code_detection_off">DI code detection: off</string>
 	<string name="di_code_remarks">DI code remarks</string>
-	<string name="di_code_remarks_empty_summary">No remarks yet</string>
-	<string name="di_code_remarks_count">%1$d DI codes with remarks</string>
 	<string name="di_code_remarks_none">No remark</string>
 	<string name="di_code_remarks_empty">No DI codes in the history yet</string>
 	<string name="di_code_remark_edit">Remark for this DI code</string>

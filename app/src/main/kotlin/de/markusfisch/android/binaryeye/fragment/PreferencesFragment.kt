@@ -26,7 +26,6 @@ import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import de.markusfisch.android.binaryeye.R
 import de.markusfisch.android.binaryeye.activity.AutomatedActionsActivity
-import de.markusfisch.android.binaryeye.activity.DiCodeRemarksActivity
 import de.markusfisch.android.binaryeye.activity.IgnoreCodesActivity
 import de.markusfisch.android.binaryeye.activity.NetworkSuggestionsActivity
 import de.markusfisch.android.binaryeye.activity.ProfilesActivity
@@ -112,7 +111,6 @@ class PreferencesFragment : PreferenceFragmentCompat() {
 		wireProfiles()
 		wireAutomatedActions()
 		wireIgnoreCodes()
-		wireDiCodeRemarks()
 		setBluetoothResources()
 		wireClearNetworkPreferences()
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
@@ -213,27 +211,6 @@ class PreferencesFragment : PreferenceFragmentCompat() {
 		}
 	}
 
-	private fun wireDiCodeRemarks() {
-		findPreference<Preference>(DI_CODE_REMARKS)?.apply {
-			updateDiCodeRemarksSummary(this)
-			onPreferenceClickListener = Preference.OnPreferenceClickListener {
-				startActivity(
-					Intent(activity, DiCodeRemarksActivity::class.java)
-				)
-				true
-			}
-		}
-	}
-
-	private fun updateDiCodeRemarksSummary(preference: Preference) {
-		val count = prefs.diCodeRemarks.size
-		preference.summary = if (count > 0) {
-			getString(R.string.di_code_remarks_count, count)
-		} else {
-			getString(R.string.di_code_remarks_empty_summary)
-		}
-	}
-
 	private fun setBluetoothResources() {
 		if (prefs.sendScanBluetooth &&
 			activity?.hasBluetoothPermission() == true
@@ -307,9 +284,6 @@ class PreferencesFragment : PreferenceFragmentCompat() {
 		findPreference<Preference>(IGNORE_CODES)?.let {
 			updateIgnoreCodesSummary(it)
 		}
-		findPreference<Preference>(DI_CODE_REMARKS)?.let {
-			updateDiCodeRemarksSummary(it)
-		}
 		findPreference<Preference>(PROFILE)?.let {
 			updateProfileSummary(it)
 		}
@@ -353,7 +327,6 @@ class PreferencesFragment : PreferenceFragmentCompat() {
 		when (preference.key) {
 			AUTOMATED_ACTIONS -> return updateAutomatedActionsSummary(preference)
 			IGNORE_CODES -> return updateIgnoreCodesSummary(preference)
-			DI_CODE_REMARKS -> return updateDiCodeRemarksSummary(preference)
 			BEEP_TONE_NAME -> {
 				setBeepToneSummary(preference)
 				return
@@ -560,7 +533,6 @@ class PreferencesFragment : PreferenceFragmentCompat() {
 		private const val DEFAULT_CAMERA = "default_camera"
 		private const val CAMERA_INTENT = "camera_intent"
 		private const val IGNORE_CODES = "ignore_codes"
-		private const val DI_CODE_REMARKS = "di_code_remarks"
 		private const val SEND_SCAN_BLUETOOTH = "send_scan_bluetooth"
 		private const val SEND_SCAN_BLUETOOTH_HOST = "send_scan_bluetooth_host"
 		private const val SEND_SCAN_KDE_CONNECT = "send_scan_kde_connect"

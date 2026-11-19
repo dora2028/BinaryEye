@@ -47,4 +47,8 @@
 		android:icon="@drawable/ic_action_remove"
 		android:title="@string/clear_history"
 		material:showAsAction="ifRoom"/>
+	<item
+		android:id="@+id/advanced_features"
+		android:title="@string/advanced_features"
+		material:showAsAction="never"/>
 </menu>

@@ -473,6 +473,11 @@ class HistoryActivity : AbstractBaseActivity() {
 				true
 			}
 
+			R.id.advanced_features -> {
+				askToShowAdvancedFeatures()
+				true
+			}
+
 			R.id.clear -> {
 				this.askToRemoveScans()
 				true
@@ -812,6 +817,40 @@ class HistoryActivity : AbstractBaseActivity() {
 					.show()
 			}
 		}
+	}
+
+	/**
+	 * The DI code switch and the DI code remarks live behind the
+	 * overflow menu of the history so they are only a tap away from
+	 * the list they affect.
+	 */
+	private fun askToShowAdvancedFeatures() {
+		val detection = prefs.diCodeDetection
+		val items = arrayOf(
+			getString(
+				if (detection) {
+					R.string.di_code_detection_on
+				} else {
+					R.string.di_code_detection_off
+				}
+			),
+			getString(R.string.di_code_remarks)
+		)
+		MaterialAlertDialogBuilder(this)
+			.setTitle(R.string.advanced_features)
+			.setItems(items) { _, which ->
+				when (which) {
+					0 -> {
+						prefs.diCodeDetection = !detection
+						update()
+					}
+
+					1 -> startActivity(
+						Intent(this, DiCodeRemarksActivity::class.java)
+					)
+				}
+			}
+			.show()
 	}
 
 	private fun askToManageGroups() {

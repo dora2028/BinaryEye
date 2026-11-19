@@ -204,17 +204,6 @@
 			android:title="@string/brighten_screen"
 			android:summary="@string/brighten_screen_summary"/>
 	</PreferenceCategory>
-	<PreferenceCategory android:title="@string/advanced_category">
-		<androidx.preference.SwitchPreferenceCompat
-			android:defaultValue="false"
-			android:key="di_code_detection"
-			android:title="@string/di_code_detection"
-			android:summary="@string/di_code_detection_summary"/>
-		<Preference
-			android:key="di_code_remarks"
-			android:title="@string/di_code_remarks"
-			android:summary="@string/di_code_remarks_empty_summary"/>
-	</PreferenceCategory>
 	<PreferenceCategory android:title="@string/locale_category">
 		<ListPreference
 			android:key="custom_locale"
