@@ -41,6 +41,7 @@ import de.markusfisch.android.binaryeye.content.shareText
 import de.markusfisch.android.binaryeye.content.wipeLastShareFile
 import de.markusfisch.android.binaryeye.database.Database
 import de.markusfisch.android.binaryeye.database.GROUP_COLORS
+import de.markusfisch.android.binaryeye.database.Scan
 import de.markusfisch.android.binaryeye.database.ScanGroup
 import de.markusfisch.android.binaryeye.database.exportCsv
 import de.markusfisch.android.binaryeye.database.exportDatabase
@@ -55,6 +56,7 @@ import de.markusfisch.android.binaryeye.view.systemBarListViewScrollListener
 import de.markusfisch.android.binaryeye.view.unlockStatusBarColor
 import de.markusfisch.android.binaryeye.view.useVisibility
 import de.markusfisch.android.binaryeye.widget.toast
+import de.markusfisch.android.zxingcpp.ZxingCpp.BarcodeFormat
 import java.text.Collator
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -873,9 +875,10 @@ class HistoryActivity : AbstractBaseActivity() {
 	}
 
 	/**
-	 * Labels the most recent scan of the default group that carries a
-	 * DI code with "<remark> x<count>", where count is how often that
-	 * DI code occurred in a row.
+	 * Adds a new barcode with "<remark> x<count>" to the history,
+	 * where count is how often that DI code occurred in a row. The
+	 * scan that carries the DI code stays untouched; the temporary
+	 * remark is a barcode of its own instead of a label on that scan.
 	 */
 	private fun addTemporaryRemark() {
 		scope.launch {
@@ -886,21 +889,30 @@ class HistoryActivity : AbstractBaseActivity() {
 			}
 			val remark = target?.let { prefs.diCodeRemark(it.diCode) }
 			val anyContent = if (target == null) db.getLastScanContent() else null
+			val text = if (target == null || remark.isNullOrEmpty()) {
+				null
+			} else {
+				getString(
+					R.string.temp_remark_label,
+					remark,
+					target.count
+				)
+			}
+			if (text != null) {
+				// Same format the remark composer falls back to, so
+				// the new barcode renders as plain text.
+				db.insertScan(Scan(text, null, BarcodeFormat.Aztec))
+			}
 			withContext(Dispatchers.Main) {
 				if (target == null) {
 					askToRemarkManually(anyContent, hasDiCode = false)
 					return@withContext
 				}
-				if (remark.isNullOrEmpty()) {
+				val label = text
+				if (label == null) {
 					askToRemarkManually(targetContent, hasDiCode = true)
 					return@withContext
 				}
-				val label = getString(
-					R.string.temp_remark_label,
-					remark,
-					target.count
-				)
-				db.renameScan(target.id, label)
 				toast(getString(R.string.temp_remark_added, label))
 				update()
 			}
