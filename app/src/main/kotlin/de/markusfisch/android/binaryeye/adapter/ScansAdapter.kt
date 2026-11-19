@@ -17,6 +17,8 @@ import android.widget.TextView
 import de.markusfisch.android.binaryeye.R
 import de.markusfisch.android.binaryeye.app.prefs
 import de.markusfisch.android.binaryeye.content.DiCode
+import de.markusfisch.android.binaryeye.content.Gs1Medication
+import de.markusfisch.android.binaryeye.content.Gs1MedicationParser
 import de.markusfisch.android.binaryeye.content.ParsedContentType
 import de.markusfisch.android.binaryeye.content.counts
 import de.markusfisch.android.binaryeye.content.diCodeLine
@@ -69,19 +71,44 @@ class ScansAdapter(
 			val formatIndex = c.getColumnIndex(Database.SCANS_FORMAT)
 			val groupIndex = c.getColumnIndex(Database.SCANS_GROUP_ID)
 			while (c.moveToNext()) {
+				val text = c.getString(textIndex) ?: ""
+				val raw = c.getBlob(rawIndex)
+				val format = c.getString(formatIndex) ?: ""
+				val storedType = parsedContentTypeFromName(
+					c.getString(contentTypeIndex)
+				)
+				// Parsed once while reading the cursor instead of on every
+				// bind so scrolling stays cheap. Rows that were stored before
+				// GS1 support existed are UNKNOWN and get another chance here
+				// instead of staying unparsed forever.
+				val medication = if (
+					storedType == ParsedContentType.UNKNOWN ||
+					storedType == ParsedContentType.GS1_DATA
+				) {
+					Gs1MedicationParser.parse(
+						text,
+						raw ?: ByteArray(0),
+						format
+					)
+				} else {
+					null
+				}
 				scans.add(
 					ScanItem(
 						c.getLong(idIndex),
 						c.getInt(pinnedIndex) != 0,
 						c.getString(timeIndex) ?: "",
 						c.getString(nameIndex),
-						c.getString(textIndex) ?: "",
-						c.getBlob(rawIndex),
-						parsedContentTypeFromName(
-							c.getString(contentTypeIndex)
-						),
-						c.getString(formatIndex) ?: "",
-						groupIndex.takeIf { it >= 0 }?.let { c.getLong(it) } ?: 0L
+						text,
+						raw,
+						if (medication != null) {
+							ParsedContentType.GS1_DATA
+						} else {
+							storedType
+						},
+						format,
+						groupIndex.takeIf { it >= 0 }?.let { c.getLong(it) } ?: 0L,
+						medication
 					)
 				)
 			}
@@ -558,12 +585,16 @@ class ScansAdapter(
 				item.name
 			}
 
-			item.text.isEmpty() -> getContentPreview(
-				context,
-				item.text,
-				item.raw ?: ByteArray(0),
-				item.format
-			)
+			item.medication != null -> item.medication.gtin
+
+			item.text.isEmpty() ||
+				item.contentType == ParsedContentType.GS1_DATA ->
+				getContentPreview(
+					context,
+					item.text,
+					item.raw ?: ByteArray(0),
+					item.format
+				)
 
 			else -> item.text
 		}
@@ -611,7 +642,8 @@ class ScansAdapter(
 		val raw: ByteArray?,
 		val contentType: ParsedContentType,
 		val format: String,
-		val groupId: Long
+		val groupId: Long,
+		val medication: Gs1Medication? = null
 	)
 
 	private sealed class Row {
