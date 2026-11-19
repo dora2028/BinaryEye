@@ -27,6 +27,21 @@ object DiCode {
 		}
 		return content.substring(PREFIX.length, MIN_LENGTH)
 	}
+
+	/**
+	 * The remark that a scan following a DI code suggests: everything
+	 * before the first space, "x" or "X". Null when there is nothing
+	 * left or when the content is another DI code.
+	 */
+	fun remarkOf(content: String): String? {
+		if (of(content) != null) {
+			return null
+		}
+		val remark = content.takeWhile {
+			it != ' ' && it != 'x' && it != 'X'
+		}.trim()
+		return remark.ifEmpty { null }
+	}
 }
 
 /**

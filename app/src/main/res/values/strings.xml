@@ -154,6 +154,8 @@
 	<string name="advanced_features">Advanced features</string>
 	<string name="di_code_detection_on">DI code detection: on</string>
 	<string name="di_code_detection_off">DI code detection: off</string>
+	<string name="di_code_auto_remark_on">DI code auto remark: on</string>
+	<string name="di_code_auto_remark_off">DI code auto remark: off</string>
 	<string name="di_code_remarks">DI code remarks</string>
 	<string name="di_code_remarks_none">No remark</string>
 	<string name="di_code_remarks_empty">No DI codes in the history yet</string>

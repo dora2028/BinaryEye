@@ -826,12 +826,20 @@ class HistoryActivity : AbstractBaseActivity() {
 	 */
 	private fun askToShowAdvancedFeatures() {
 		val detection = prefs.diCodeDetection
+		val autoRemark = prefs.diCodeAutoRemark
 		val items = arrayOf(
 			getString(
 				if (detection) {
 					R.string.di_code_detection_on
 				} else {
 					R.string.di_code_detection_off
+				}
+			),
+			getString(
+				if (autoRemark) {
+					R.string.di_code_auto_remark_on
+				} else {
+					R.string.di_code_auto_remark_off
 				}
 			),
 			getString(R.string.di_code_remarks)
@@ -845,7 +853,18 @@ class HistoryActivity : AbstractBaseActivity() {
 						update()
 					}
 
-					1 -> startActivity(
+					1 -> {
+						prefs.diCodeAutoRemark = !autoRemark
+						toast(
+							if (autoRemark) {
+								R.string.di_code_auto_remark_off
+							} else {
+								R.string.di_code_auto_remark_on
+							}
+						)
+					}
+
+					2 -> startActivity(
 						Intent(this, DiCodeRemarksActivity::class.java)
 					)
 				}
