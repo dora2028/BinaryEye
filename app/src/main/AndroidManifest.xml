@@ -164,6 +164,9 @@
 			android:name=".activity.IgnoreCodesActivity"
 			android:exported="false"/>
 		<activity
+			android:name=".activity.DiCodeRemarksActivity"
+			android:exported="false"/>
+		<activity
 			android:name=".activity.NetworkSuggestionsActivity"
 			android:exported="false"/>
 		<service

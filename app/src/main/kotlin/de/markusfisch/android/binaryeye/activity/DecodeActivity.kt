@@ -66,6 +66,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.security.MessageDigest
 import kotlin.math.roundToInt
+import de.markusfisch.android.binaryeye.content.DiCode
+import de.markusfisch.android.binaryeye.content.diCodeLine
 import de.markusfisch.android.binaryeye.content.ParsedField as Field
 
 class DecodeActivity : AbstractBaseActivity() {
@@ -81,6 +83,7 @@ class DecodeActivity : AbstractBaseActivity() {
 	private lateinit var hexHeadlineView: TextView
 	private lateinit var hexView: TextView
 	private lateinit var formatDescriptionView: TextView
+	private lateinit var diCodeView: TextView
 	private lateinit var recreationView: ImageView
 	private lateinit var labelView: EditText
 	private lateinit var fab: FloatingActionButton
@@ -152,6 +155,7 @@ class DecodeActivity : AbstractBaseActivity() {
 		hexHeadlineView = findViewById(R.id.hex_headline)
 		hexView = findViewById(R.id.hex)
 		formatDescriptionView = findViewById(R.id.format_description)
+		diCodeView = findViewById(R.id.di_code)
 		recreationView = findViewById(R.id.recreation)
 		labelView = findViewById(R.id.label)
 		fab = findViewById(R.id.open)
@@ -182,6 +186,18 @@ class DecodeActivity : AbstractBaseActivity() {
 			formatDescriptionView.visibility = View.GONE
 			metaHeadlineView.visibility = View.GONE
 			metaView.visibility = View.GONE
+		}
+
+		val diCode = if (prefs.diCodeDetection) {
+			DiCode.of(scan.text)
+		} else {
+			null
+		}
+		if (diCode == null) {
+			diCodeView.visibility = View.GONE
+		} else {
+			diCodeView.text = diCodeLine(diCode)
+			diCodeView.visibility = View.VISIBLE
 		}
 
 		if (scan.id > 0) {

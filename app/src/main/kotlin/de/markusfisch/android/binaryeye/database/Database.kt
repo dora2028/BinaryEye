@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteConstraintException
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import de.markusfisch.android.binaryeye.app.prefs
+import de.markusfisch.android.binaryeye.content.DiCode
 import de.markusfisch.android.binaryeye.content.ParsedContentType
 import de.markusfisch.android.binaryeye.content.parseData
 import de.markusfisch.android.binaryeye.content.parsedContentTypeFromName
@@ -180,6 +181,31 @@ class Database {
 		null
 	).use {
 		if (it.moveToFirst()) it.getInt(0) else 0
+	}
+
+	/**
+	 * All distinct DI codes (the 14 digits after a leading "01") that
+	 * are in the history, most recent first.
+	 */
+	fun getDiCodes(): List<String> = db.rawQuery(
+		"""SELECT
+			substr($SCANS_TEXT, 3, ${DiCode.LENGTH}) AS di_code,
+			MAX($SCANS_ID)
+			FROM $SCANS
+			WHERE $SCANS_TEXT LIKE '01%'
+				AND length($SCANS_TEXT) >= ${2 + DiCode.LENGTH}
+			GROUP BY di_code
+			ORDER BY MAX($SCANS_ID) DESC
+		""".trimMargin(), null
+	).use {
+		val codes = mutableListOf<String>()
+		while (it.moveToNext()) {
+			val code = it.getString(0)
+			if (!code.isNullOrEmpty()) {
+				codes.add(code)
+			}
+		}
+		codes
 	}
 
 	fun getScan(id: Long): Scan? = db.rawQuery(

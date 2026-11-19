@@ -161,6 +161,13 @@ class Preferences {
 		}
 	var ignoreCodes = DEFAULT_IGNORE_LIST
 		private set
+	var diCodeDetection = false
+		set(value) {
+			apply(DI_CODE_DETECTION, value)
+			field = value
+		}
+	var diCodeRemarks: Map<String, String> = emptyMap()
+		private set
 	var copyImmediately = false
 		set(value) {
 			apply(COPY_IMMEDIATELY, value)
@@ -634,6 +641,13 @@ class Preferences {
 				ignoreCodesToJsonArray(DEFAULT_IGNORE_LIST)
 			) ?: "[]"
 		)
+		diCodeDetection = preferences.getBoolean(
+			DI_CODE_DETECTION,
+			diCodeDetection
+		)
+		diCodeRemarks = diCodeRemarksFromJson(
+			preferences.getString(DI_CODE_REMARKS, null) ?: "{}"
+		)
 		copyImmediately = preferences.getBoolean(
 			COPY_IMMEDIATELY,
 			copyImmediately
@@ -728,6 +742,25 @@ class Preferences {
 	fun setIgnoreCodes(patterns: List<IgnoreCode>) {
 		ignoreCodes = patterns.toMutableList()
 		apply(IGNORE_CODES, ignoreCodesToJsonArray(patterns))
+	}
+
+	fun diCodeRemark(diCode: String): String? =
+		diCodeRemarks[diCode]?.takeIf { it.isNotEmpty() }
+
+	fun setDiCodeRemark(diCode: String, remark: String?) {
+		val trimmed = remark?.trim().orEmpty()
+		val remarks = LinkedHashMap(diCodeRemarks)
+		if (trimmed.isEmpty()) {
+			if (remarks.remove(diCode) == null) {
+				return
+			}
+		} else if (remarks[diCode] != trimmed) {
+			remarks[diCode] = trimmed
+		} else {
+			return
+		}
+		diCodeRemarks = remarks
+		apply(DI_CODE_REMARKS, diCodeRemarksToJson(remarks))
 	}
 
 	fun shouldIgnoreHistoryContent(content: String, format: String): Boolean =
@@ -892,6 +925,19 @@ class Preferences {
 		putBoolean(BRIGHTEN_SCREEN, true)
 	}
 
+	private fun diCodeRemarksToJson(remarks: Map<String, String>): String =
+		JSONObject(remarks).toString()
+
+	private fun diCodeRemarksFromJson(json: String): Map<String, String> =
+		try {
+			val object_ = JSONObject(json)
+			object_.keys().asSequence()
+				.associateWith { object_.optString(it, "") }
+				.filterValues { it.isNotEmpty() }
+		} catch (_: Exception) {
+			emptyMap()
+		}
+
 	private fun apply(label: String, value: Boolean) {
 		preferences.edit {
 			putBoolean(label, value)
@@ -960,6 +1006,8 @@ class Preferences {
 		private const val GROUP_SORT_ORDER = "group_sort_order"
 		private const val DEFAULT_GROUP_SORT_ORDER = "time_desc"
 		private const val IGNORE_DUPLICATES_NAME = "ignore_duplicates_name"
+		private const val DI_CODE_DETECTION = "di_code_detection"
+		private const val DI_CODE_REMARKS = "di_code_remarks"
 		private const val IGNORE_CODES = "ignore_codes"
 		private const val OPEN_IMMEDIATELY = "open_immediately"
 		private const val STRIP_TRACKING_PARAMS = "strip_tracking_params"

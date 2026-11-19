@@ -1,0 +1,23 @@
+<LinearLayout
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:orientation="vertical"
+	android:padding="16dp">
+	<TextView
+		android:id="@+id/di_code"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:textAppearance="?android:attr/textAppearanceMedium"
+		android:typeface="monospace"/>
+	<EditText
+		android:id="@+id/remark"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:hint="@string/di_code_remark_hint"
+		android:imeOptions="actionDone"
+		android:importantForAutofill="no"
+		android:inputType="textShortMessage|textAutoCorrect|textCapSentences"
+		android:maxLength="1024"
+		android:maxLines="3"/>
+</LinearLayout>

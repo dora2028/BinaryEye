@@ -15,7 +15,10 @@ import android.widget.ImageView
 import android.widget.Spinner
 import android.widget.TextView
 import de.markusfisch.android.binaryeye.R
+import de.markusfisch.android.binaryeye.app.prefs
+import de.markusfisch.android.binaryeye.content.DiCode
 import de.markusfisch.android.binaryeye.content.ParsedContentType
+import de.markusfisch.android.binaryeye.content.diCodeLine
 import de.markusfisch.android.binaryeye.content.getContentPreview
 import de.markusfisch.android.binaryeye.content.parsedContentTypeFromName
 import de.markusfisch.android.binaryeye.database.Database
@@ -429,6 +432,7 @@ class ScansAdapter(
 				view.findViewById(R.id.format_icon),
 				view.findViewById(R.id.meta),
 				view.findViewById(R.id.format),
+				view.findViewById(R.id.di_code),
 				view.findViewById(R.id.group_badge),
 				view.findViewById(R.id.content),
 				view.findViewById(R.id.pin)
@@ -439,6 +443,17 @@ class ScansAdapter(
 		holder.formatView.text = item.format.prettifyFormatName()
 			.withContentType(context, item.contentType)
 		holder.formatIconView.setImageResource(item.format.toBarcodeIcon())
+		val diCode = if (prefs.diCodeDetection) {
+			DiCode.of(item.text)
+		} else {
+			null
+		}
+		if (diCode == null) {
+			holder.diCodeView.visibility = View.GONE
+		} else {
+			holder.diCodeView.text = context.diCodeLine(diCode)
+			holder.diCodeView.visibility = View.VISIBLE
+		}
 		val group = item.groupId.takeIf { it > 0L }?.let { groupById[it] }
 		if (group != null) {
 			holder.groupView.text = SpannableString("● ${group.name}").apply {
@@ -538,6 +553,7 @@ class ScansAdapter(
 		val formatIconView: ImageView,
 		val metaView: TextView,
 		val formatView: TextView,
+		val diCodeView: TextView,
 		val groupView: TextView,
 		val contentView: TextView,
 		val pinView: ImageButton
