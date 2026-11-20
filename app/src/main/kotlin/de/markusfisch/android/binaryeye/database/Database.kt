@@ -503,6 +503,21 @@ class Database {
 		db.update(SCANS, cv, "$SCANS_ID = ?", arrayOf("$id"))
 	}
 
+	/**
+	 * Replaces the content of an existing scan. The timestamp, label,
+	 * group and pinned state are left untouched; only the columns that
+	 * are derived from the content (text, raw bytes, parsed content
+	 * type) are rewritten so every view stays in sync with the edit.
+	 */
+	fun updateScanContent(id: Long, text: String, format: String) {
+		val raw = text.toByteArray()
+		val cv = ContentValues()
+		cv.put(SCANS_TEXT, text)
+		cv.put(SCANS_RAW, raw)
+		cv.put(SCANS_CONTENT_TYPE, getContentType(text, raw, format).name)
+		db.update(SCANS, cv, "$SCANS_ID = ?", arrayOf("$id"))
+	}
+
 	fun setPinned(id: Long, pinned: Boolean) {
 		val cv = ContentValues()
 		cv.put(SCANS_PINNED, if (pinned) 1 else 0)

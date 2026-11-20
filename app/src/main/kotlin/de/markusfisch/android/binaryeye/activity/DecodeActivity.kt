@@ -193,12 +193,7 @@ class DecodeActivity : AbstractBaseActivity() {
 		} else {
 			null
 		}
-		if (diCode == null) {
-			diCodeView.visibility = View.GONE
-		} else {
-			diCodeView.text = diCodeLine(diCode)
-			diCodeView.visibility = View.VISIBLE
-		}
+		showDiCode(diCode)
 
 		if (scan.id > 0) {
 			labelHeadlineView.visibility = View.VISIBLE
@@ -575,6 +570,9 @@ class DecodeActivity : AbstractBaseActivity() {
 		inflater.inflate(R.menu.fragment_decode, menu)
 		if (scan.id > 0L) {
 			menu.findItem(R.id.remove).isVisible = true
+			// Binary content is shown read-only, so there is nothing to
+			// save and the edit action stays hidden for it.
+			menu.findItem(R.id.edit_content).isVisible = !isBinary
 		}
 		if (action is WifiAction) {
 			menu.findItem(R.id.copy_password).isVisible = true
@@ -634,7 +632,61 @@ class DecodeActivity : AbstractBaseActivity() {
 				true
 			}
 
+			R.id.edit_content -> {
+				askToEditScanContent()
+				true
+			}
+
 			else -> super.onOptionsItemSelected(item)
+		}
+	}
+
+	private fun askToEditScanContent() {
+		val newContent = content
+		when {
+			scan.id <= 0L -> Unit
+
+			newContent.isEmpty() -> toast(
+				R.string.scan_content_must_not_be_empty
+			)
+
+			newContent == scan.text -> toast(R.string.scan_content_unchanged)
+
+			else -> MaterialAlertDialogBuilder(this)
+				.setMessage(R.string.really_edit_scan_content)
+				.setPositiveButton(android.R.string.ok) { _, _ ->
+					updateScanContent(newContent)
+				}
+				.setNegativeButton(android.R.string.cancel) { _, _ ->
+				}
+				.show()
+		}
+	}
+
+	// Writes the edited text back to this history entry. Timestamp,
+	// label, group and pinned state stay untouched; the raw bytes and
+	// the parsed content type are recomputed from the new text so the
+	// history list and the parsed data section agree with it.
+	private fun updateScanContent(newContent: String) {
+		val id = scan.id
+		if (id <= 0L) {
+			return
+		}
+		val bytes = newContent.toByteArray()
+		db.updateScanContent(id, newContent, format)
+		originalBytes = bytes
+		scan = scan.copy(text = newContent, raw = bytes)
+		updateViewsAndFab(newContent)
+		showDiCode(if (prefs.diCodeDetection) DiCode.of(newContent) else null)
+		toast(R.string.scan_content_updated)
+	}
+
+	private fun showDiCode(diCode: String?) {
+		if (diCode == null) {
+			diCodeView.visibility = View.GONE
+		} else {
+			diCodeView.text = diCodeLine(diCode)
+			diCodeView.visibility = View.VISIBLE
 		}
 	}
 

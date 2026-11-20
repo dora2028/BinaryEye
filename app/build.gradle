@@ -8,7 +8,7 @@ android {
 		minSdk 21
 		targetSdk sdk_version
 
-		versionCode 186
+		versionCode 187
 		versionName '2.1.76.0'
 	}
 

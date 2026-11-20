@@ -253,6 +253,11 @@
 	<string name="brighten_screen">点亮屏幕</string>
 	<string name="brighten_screen_summary">将屏幕亮度设为最大，以增强从屏幕扫描的效果。</string>
 	<string name="really_remove_scan">确定删除记录？</string>
+	<string name="edit_scan_content">修改内容</string>
+	<string name="really_edit_scan_content">用编辑后的内容替换这条历史记录？时间、标签和分组都不会改变。</string>
+	<string name="scan_content_updated">历史记录已修改</string>
+	<string name="scan_content_unchanged">内容没有变化</string>
+	<string name="scan_content_must_not_be_empty">内容不能为空</string>
 	<string name="really_remove_all_scans">确定删除全部记录？</string>
 	<string name="really_remove_selected_scans">确定删除所选记录？</string>
 	<string name="clear_history">清空记录</string>

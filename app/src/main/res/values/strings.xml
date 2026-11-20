@@ -270,6 +270,11 @@
 	<string name="brighten_screen">Brighten screen</string>
 	<string name="brighten_screen_summary">Set brightness to maximum to enhance scanning a barcode from the screen.</string>
 	<string name="really_remove_scan">Really remove scan?</string>
+	<string name="edit_scan_content">Modify content</string>
+	<string name="really_edit_scan_content">Replace the content of this entry with the edited text? The timestamp, label and group stay unchanged.</string>
+	<string name="scan_content_updated">Entry updated</string>
+	<string name="scan_content_unchanged">Content is unchanged</string>
+	<string name="scan_content_must_not_be_empty">Content must not be empty</string>
 	<string name="really_remove_all_scans">Really remove all scans?</string>
 	<string name="really_remove_selected_scans">Really remove selected scans?</string>
 	<string name="clear_history">Clear history</string>
