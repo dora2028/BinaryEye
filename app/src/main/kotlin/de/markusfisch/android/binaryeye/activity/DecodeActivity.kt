@@ -213,6 +213,15 @@ class DecodeActivity : AbstractBaseActivity() {
 		updateViewsAndFab(scan.text, originalBytes)
 	}
 
+	override fun onResume() {
+		super.onResume()
+		// The remark composer may have written a remark for the DI code
+		// of this record, so refresh the DI code line when coming back.
+		if (prefs.diCodeDetection && this::scan.isInitialized) {
+			showDiCode(DiCode.of(scan.text))
+		}
+	}
+
 	override fun onPause() {
 		super.onPause()
 		val id = scan.id
@@ -637,8 +646,34 @@ class DecodeActivity : AbstractBaseActivity() {
 				true
 			}
 
+			R.id.add_remark -> {
+				openRemarkComposer()
+				true
+			}
+
 			else -> super.onOptionsItemSelected(item)
 		}
+	}
+
+	/**
+	 * Same behaviour as the remark button of the history: opens the
+	 * barcode composer in remark mode for the DI code of this record,
+	 * so its remark can be written or overwritten. A record without a
+	 * DI code still gets its remark added to the history, it just does
+	 * not update a DI code remark.
+	 */
+	private fun openRemarkComposer() {
+		val target = scan.text.ifEmpty { content }
+		if (target.isEmpty()) {
+			toast(R.string.error_no_content)
+			return
+		}
+		startActivity(
+			Intent(this, EncodeActivity::class.java).apply {
+				putExtra(EncodeActivity.EXTRA_REMARK_MODE, true)
+				putExtra(EncodeActivity.EXTRA_TARGET_CONTENT, target)
+			}
+		)
 	}
 
 	private fun askToEditScanContent() {
