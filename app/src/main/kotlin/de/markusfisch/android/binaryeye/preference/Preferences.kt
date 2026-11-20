@@ -11,6 +11,7 @@ import de.markusfisch.android.binaryeye.R
 import de.markusfisch.android.binaryeye.automation.AutomatedAction
 import de.markusfisch.android.binaryeye.automation.AutomatedAction.Companion.fromJsonArray
 import de.markusfisch.android.binaryeye.automation.AutomatedAction.Companion.toJsonArray
+import de.markusfisch.android.binaryeye.io.ExportPaths
 import de.markusfisch.android.binaryeye.zxingcpp.migrateBarcodeFormatName
 import de.markusfisch.android.zxingcpp.ZxingCpp.BarcodeFormat
 import org.json.JSONArray
@@ -144,10 +145,28 @@ class Preferences {
 			apply(USE_HISTORY, value)
 			field = value
 		}
-	var exportDirectoryUri = ""
+	/**
+	 * Up to [ExportPaths.MAX_PATHS] export directories. Every export is
+	 * written to all of them. Falls back to the single directory of
+	 * older versions so existing installs keep theirs.
+	 */
+	var exportDirectoryUris: List<String>
+		get() {
+			val stored = preferences.getString(EXPORT_DIRECTORY_URIS, "")
+			if (!stored.isNullOrEmpty()) {
+				return stored.split('\n')
+					.filter { it.isNotEmpty() }
+					.take(ExportPaths.MAX_PATHS)
+			}
+			val legacy = preferences.getString(EXPORT_DIRECTORY_URI, "")
+			return legacy?.takeIf { it.isNotEmpty() }
+				?.let { listOf(it) } ?: emptyList()
+		}
 		set(value) {
-			apply(EXPORT_DIRECTORY_URI, value)
-			field = value
+			apply(
+				EXPORT_DIRECTORY_URIS,
+				value.take(ExportPaths.MAX_PATHS).joinToString("\n")
+			)
 		}
 	var groupSortOrder = DEFAULT_GROUP_SORT_ORDER
 		set(value) {
@@ -618,12 +637,6 @@ class Preferences {
 		}
 		useHistory = preferences.getBoolean(USE_HISTORY, useHistory)
 		preferences.getString(
-			EXPORT_DIRECTORY_URI,
-			exportDirectoryUri
-		)?.also {
-			exportDirectoryUri = it
-		}
-		preferences.getString(
 			GROUP_SORT_ORDER,
 			groupSortOrder
 		)?.also {
@@ -1036,6 +1049,7 @@ class Preferences {
 		private const val BEEP_TONE_URI = "beep_tone_uri"
 		private const val USE_HISTORY = "use_history"
 		private const val EXPORT_DIRECTORY_URI = "export_directory_uri"
+		private const val EXPORT_DIRECTORY_URIS = "export_directory_uris"
 		private const val GROUP_SORT_ORDER = "group_sort_order"
 		private const val LIMIT_GROUPS = "limit_groups"
 		private const val DEFAULT_GROUP_SORT_ORDER = "time_desc"

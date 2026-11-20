@@ -2,7 +2,7 @@ package de.markusfisch.android.binaryeye.database
 
 import android.content.Context
 import android.database.Cursor
-import de.markusfisch.android.binaryeye.io.writeExternalFile
+import de.markusfisch.android.binaryeye.io.ExportPaths
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 
@@ -10,9 +10,12 @@ fun Context.exportCsv(
 	name: String,
 	cursor: Cursor,
 	delimiter: String
-) = writeExternalFile(name, "text/csv") { outputStream ->
-	exportCsv(outputStream, cursor, delimiter)
-}
+): ExportPaths.Report = ExportPaths.write(
+	this,
+	name,
+	"text/csv",
+	cursor.exportCsv(delimiter).toByteArray()
+)
 
 fun Cursor.exportCsv(delimiter: String): String {
 	val outputStream = ByteArrayOutputStream()

@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.database.Cursor
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Parcelable
@@ -47,9 +48,8 @@ import de.markusfisch.android.binaryeye.database.exportCsv
 import de.markusfisch.android.binaryeye.database.exportDatabase
 import de.markusfisch.android.binaryeye.database.exportJson
 import de.markusfisch.android.binaryeye.io.ArchiveStorage
+import de.markusfisch.android.binaryeye.io.ExportPaths
 import de.markusfisch.android.binaryeye.io.askForFileName
-import de.markusfisch.android.binaryeye.io.toSaveResult
-import de.markusfisch.android.binaryeye.io.writeExternalFileTo
 import de.markusfisch.android.binaryeye.view.lockStatusBarColor
 import de.markusfisch.android.binaryeye.view.setPaddingFromWindowInsets
 import de.markusfisch.android.binaryeye.view.systemBarListViewScrollListener
@@ -267,18 +267,15 @@ class HistoryActivity : AbstractBaseActivity() {
 			ActivityResultContracts.OpenDocumentTree()
 		) { uri ->
 			if (uri != null) {
-				try {
-					contentResolver.takePersistableUriPermission(
-						uri,
-						Intent.FLAG_GRANT_READ_URI_PERMISSION or
-							Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-					)
-				} catch (_: SecurityException) {
-					// The grant may still work for the current session.
+				if (ExportPaths.add(this@HistoryActivity, uri)) {
+					toast(R.string.export_path_added)
+				} else {
+					toast(R.string.export_paths_add_failed)
 				}
-				prefs.exportDirectoryUri = uri.toString()
-				toast(R.string.directory_changed)
 				refreshExports()
+				// Keep the manager open so the second path can be
+				// added right away.
+				askToManageExportPaths()
 			}
 		}
 
@@ -761,7 +758,7 @@ class HistoryActivity : AbstractBaseActivity() {
 						}
 					)
 				} ?: return@useVisibility
-				val message = when (delimiter) {
+				val report = when (delimiter) {
 					"db" -> ac.exportDatabase(name)
 					else -> db.getScansDetailed(filter, groupFilter).use {
 						when (delimiter) {
@@ -769,7 +766,9 @@ class HistoryActivity : AbstractBaseActivity() {
 							else -> ac.exportCsv(name, it, delimiter)
 						}
 					}
-				}.toSaveResult()
+				}
+				val message = report?.messageRes()
+					?: R.string.error_saving_file
 				withContext(Dispatchers.Main) {
 					ac.toast(message)
 				}
@@ -973,7 +972,8 @@ class HistoryActivity : AbstractBaseActivity() {
 			),
 			getString(R.string.di_code_semi_auto_remark_default),
 			getString(R.string.di_code_semi_auto_remark_all),
-			getString(R.string.di_code_remarks)
+			getString(R.string.di_code_remarks),
+			getString(R.string.export_paths)
 		)
 		MaterialAlertDialogBuilder(this)
 			.setTitle(R.string.advanced_features)
@@ -1000,6 +1000,8 @@ class HistoryActivity : AbstractBaseActivity() {
 					4 -> startActivity(
 						Intent(this, DiCodeRemarksActivity::class.java)
 					)
+
+				5 -> askToManageExportPaths()
 				}
 			}
 			.show()
@@ -1324,22 +1326,14 @@ class HistoryActivity : AbstractBaseActivity() {
 			"yyyyMMdd-HHmmss",
 			Locale.US
 		).format(Date()) + ".txt"
-		val archived = ArchiveStorage(this@HistoryActivity).write(name, text)
-		val exported = writeExternalFileTo(
+		val report = ExportPaths.write(
+			this@HistoryActivity,
 			name,
 			"text/plain",
-			"BinaryEye"
-		) {
-			it.write(text.toByteArray())
-		}
+			text.toByteArray()
+		)
 		withContext(Dispatchers.Main) {
-			toast(
-				if (archived || exported) {
-					R.string.export_saved
-				} else {
-					R.string.error_saving_file
-				}
-			)
+			toast(report.messageRes())
 		}
 	}
 
@@ -1521,23 +1515,50 @@ class HistoryActivity : AbstractBaseActivity() {
 	}
 
 	private fun askToConfigureExportDirectory() {
+		askToManageExportPaths()
+	}
+
+	/**
+	 * Lets the user add up to two export directories. All exports of the
+	 * app are written to every one of them, see [ExportPaths].
+	 */
+	private fun askToManageExportPaths() {
+		val targets = ExportPaths.targets(this)
+		val names = targets.map {
+			if (it.hasPermission) {
+				it.label
+			} else {
+				getString(R.string.export_path_no_permission_suffix, it.label)
+			}
+		}.toMutableList()
+		if (targets.size < ExportPaths.MAX_PATHS) {
+			names.add(getString(R.string.add_export_path))
+		}
 		MaterialAlertDialogBuilder(this)
-			.setTitle(R.string.export_directory)
-			.setItems(
-				arrayOf(
-					getString(R.string.change_export_directory),
-					getString(R.string.reset_export_directory)
-				)
-			) { _, which ->
-				when (which) {
-					0 -> exportDirectoryPicker.launch(null)
-					else -> {
-						prefs.exportDirectoryUri = ""
-						toast(R.string.directory_changed)
-						refreshExports()
-					}
+			.setTitle(R.string.export_paths)
+			.setItems(names.toTypedArray()) { _, which ->
+				when {
+					which < targets.size -> askToRemoveExportPath(
+						targets[which].uri,
+						targets[which].label
+					)
+
+					else -> exportDirectoryPicker.launch(null)
 				}
 			}
+			.setNegativeButton(android.R.string.cancel, null)
+			.show()
+	}
+
+	private fun askToRemoveExportPath(uri: Uri, label: String) {
+		MaterialAlertDialogBuilder(this)
+			.setMessage(getString(R.string.remove_export_path, label))
+			.setPositiveButton(android.R.string.ok) { _, _ ->
+				ExportPaths.remove(this, uri)
+				toast(R.string.export_path_removed)
+				refreshExports()
+			}
+			.setNegativeButton(android.R.string.cancel, null)
 			.show()
 	}
 
@@ -1577,19 +1598,17 @@ class HistoryActivity : AbstractBaseActivity() {
 
 	private fun exportToSd(entry: ArchiveStorage.Entry) {
 		scope.launch {
-			val ok = entry.openInputStream()?.let { input ->
-				writeExternalFileTo(entry.name, "text/plain", "BinaryEye") { output ->
-					input.use { it.copyTo(output) }
-				}
-			} ?: false
-			withContext(Dispatchers.Main) {
-				toast(
-					if (ok) {
-						R.string.saved_in_downloads
-					} else {
-						R.string.error_saving_file
-					}
+			val bytes = entry.openInputStream()?.use { it.readBytes() }
+			val report = bytes?.let {
+				ExportPaths.write(
+					this@HistoryActivity,
+					entry.name,
+					"text/plain",
+					it
 				)
+			}
+			withContext(Dispatchers.Main) {
+				toast(report?.messageRes() ?: R.string.error_saving_file)
 			}
 		}
 	}

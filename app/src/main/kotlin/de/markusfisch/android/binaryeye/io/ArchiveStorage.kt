@@ -1,18 +1,17 @@
 package de.markusfisch.android.binaryeye.io
 
 import android.content.Context
-import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import de.markusfisch.android.binaryeye.R
-import de.markusfisch.android.binaryeye.app.prefs
 import java.io.File
-import java.io.FileOutputStream
 import java.io.InputStream
 
 /**
- * Backs the "exported archive" feature. Files can either live in the
- * app-private external directory (the default) or in a user-picked
- * directory granted through the Storage Access Framework.
+ * Backs the "exported archive" dialog. The exported files live in the
+ * export paths configured under the advanced features, so this lists
+ * every configured path. Files of older versions that were written to
+ * the app-private directory are still listed as long as no export path
+ * is configured.
  */
 class ArchiveStorage(private val context: Context) {
 
@@ -62,35 +61,19 @@ class ArchiveStorage(private val context: Context) {
 	private val defaultDir: File
 		get() = File(context.getExternalFilesDir(null), "exports")
 
-	private val treeUri: Uri?
-		get() = prefs.exportDirectoryUri
-			.takeIf { it.isNotEmpty() }
-			?.let { Uri.parse(it) }
-
-	private val tree: DocumentFile?
-		get() = treeUri?.let { DocumentFile.fromTreeUri(context, it) }
-
-	fun currentLabel(): String = tree?.name
-		?: context.getString(R.string.default_directory)
+	fun currentLabel(): String {
+		val labels = ExportPaths.targets(context).map { it.label }
+		return if (labels.isEmpty()) {
+			context.getString(R.string.export_paths_none)
+		} else {
+			labels.joinToString(" + ")
+		}
+	}
 
 	fun list(): List<Entry> {
 		val entries = mutableListOf<Entry>()
-		val t = tree
-		if (t != null && t.exists()) {
-			t.listFiles().forEach { doc ->
-				if (doc.isFile && doc.name?.endsWith(".txt") == true) {
-					entries.add(
-						Entry(
-							doc.name ?: "",
-							doc.lastModified(),
-							context,
-							null,
-							doc
-						)
-					)
-				}
-			}
-		} else {
+		val targets = ExportPaths.targets(context)
+		if (targets.isEmpty()) {
 			defaultDir.listFiles { file ->
 				file.isFile && file.name.endsWith(".txt")
 			}?.forEach { file ->
@@ -104,42 +87,28 @@ class ArchiveStorage(private val context: Context) {
 					)
 				)
 			}
+		} else {
+			targets.forEach { target ->
+				val tree = DocumentFile.fromTreeUri(context, target.uri)
+					?: return@forEach
+				if (!tree.exists()) {
+					return@forEach
+				}
+				tree.listFiles().forEach { doc ->
+					if (doc.isFile && doc.name?.endsWith(".txt") == true) {
+						entries.add(
+							Entry(
+								doc.name ?: "",
+								doc.lastModified(),
+								context,
+								null,
+								doc
+							)
+						)
+					}
+				}
+			}
 		}
 		return entries.sortedByDescending { it.lastModified }
-	}
-
-	fun write(name: String, content: String): Boolean {
-		val t = tree
-		if (t != null && t.exists()) {
-			return try {
-				if (t.findFile(name) != null) {
-					false
-				} else {
-					val doc = t.createFile("text/plain", name)
-						?: return false
-					context.contentResolver.openOutputStream(doc.uri)
-						?.use {
-							it.write(content.toByteArray())
-							true
-						} ?: false
-				}
-			} catch (_: Exception) {
-				false
-			}
-		}
-		return try {
-			defaultDir.mkdirs()
-			val file = File(defaultDir, name)
-			if (file.exists()) {
-				false
-			} else {
-				FileOutputStream(file).use {
-					it.write(content.toByteArray())
-				}
-				true
-			}
-		} catch (_: Exception) {
-			false
-		}
 	}
 }

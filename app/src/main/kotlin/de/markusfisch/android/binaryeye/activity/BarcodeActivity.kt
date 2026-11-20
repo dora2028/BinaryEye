@@ -29,8 +29,7 @@ import de.markusfisch.android.binaryeye.content.shareFile
 import de.markusfisch.android.binaryeye.content.shareText
 import de.markusfisch.android.binaryeye.database.toScan
 import de.markusfisch.android.binaryeye.io.addSuffixIfNotGiven
-import de.markusfisch.android.binaryeye.io.toSaveResult
-import de.markusfisch.android.binaryeye.io.writeExternalFile
+import de.markusfisch.android.binaryeye.io.ExportPaths
 import de.markusfisch.android.binaryeye.net.createEncodeDeeplink
 import de.markusfisch.android.binaryeye.os.getScreenBrightness
 import de.markusfisch.android.binaryeye.os.setScreenBrightness
@@ -45,6 +44,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -290,28 +290,34 @@ class BarcodeActivity : AbstractBaseActivity() {
 						addSuffixIfNotGiven(fileName, ".png"),
 						MIME_PNG
 					) {
-						barcode.bitmap(bitmapSize).saveAsPng(it)
+						ByteArrayOutputStream().also { output ->
+							barcode.bitmap(bitmapSize)
+								.saveAsPng(output)
+						}.toByteArray()
 					}
 
 					FileType.JPG -> saveAs(
 						addSuffixIfNotGiven(fileName, ".jpg"),
 						MIME_JPG
 					) {
-						barcode.bitmap(bitmapSize).saveAsJpg(it)
+						ByteArrayOutputStream().also { output ->
+							barcode.bitmap(bitmapSize)
+								.saveAsJpg(output)
+						}.toByteArray()
 					}
 
 					FileType.SVG -> saveAs(
 						addSuffixIfNotGiven(fileName, ".svg"),
 						MIME_SVG
 					) {
-						it.write(barcode.svg().toByteArray())
+						barcode.svg().toByteArray()
 					}
 
 					FileType.TXT -> saveAs(
 						addSuffixIfNotGiven(fileName, ".txt"),
 						MIME_TXT
 					) {
-						it.write(barcode.text().toByteArray())
+						barcode.text().toByteArray()
 					}
 				}
 			}
@@ -368,14 +374,17 @@ class BarcodeActivity : AbstractBaseActivity() {
 	private fun saveAs(
 		fileName: String,
 		mimeType: String,
-		write: (outputStream: OutputStream) -> Unit
+		write: () -> ByteArray
 	) {
 		scope.launch(Dispatchers.IO) {
-			val message = writeExternalFile(
-				fileName, mimeType, write
-			).toSaveResult()
+			val report = ExportPaths.write(
+				this@BarcodeActivity,
+				fileName,
+				mimeType,
+				write()
+			)
 			withContext(Dispatchers.Main) {
-				toast(message)
+				toast(report.messageRes())
 			}
 		}
 	}

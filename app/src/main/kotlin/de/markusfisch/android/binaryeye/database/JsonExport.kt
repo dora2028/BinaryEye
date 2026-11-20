@@ -2,7 +2,7 @@ package de.markusfisch.android.binaryeye.database
 
 import android.content.Context
 import android.database.Cursor
-import de.markusfisch.android.binaryeye.io.writeExternalFile
+import de.markusfisch.android.binaryeye.io.ExportPaths
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -10,11 +10,12 @@ import org.json.JSONObject
 fun Context.exportJson(
 	name: String,
 	cursor: Cursor
-) = writeExternalFile(name, "application/json") { outputStream ->
-	cursor.exportJson()?.let {
-		outputStream.write(it.toByteArray())
-	}
-}
+): ExportPaths.Report = ExportPaths.write(
+	this,
+	name,
+	"application/json",
+	(cursor.exportJson() ?: "").toByteArray()
+)
 
 fun Cursor.exportJson(): String? {
 	if (!moveToFirst()) {

@@ -50,8 +50,7 @@ import de.markusfisch.android.binaryeye.database.Scan
 import de.markusfisch.android.binaryeye.database.toBundle
 import de.markusfisch.android.binaryeye.database.toScan
 import de.markusfisch.android.binaryeye.io.askForFileName
-import de.markusfisch.android.binaryeye.io.toSaveResult
-import de.markusfisch.android.binaryeye.io.writeExternalFile
+import de.markusfisch.android.binaryeye.io.ExportPaths
 import de.markusfisch.android.binaryeye.net.createEncodeDeeplink
 import de.markusfisch.android.binaryeye.os.showWhenLocked
 import de.markusfisch.android.binaryeye.view.hideSoftKeyboard
@@ -831,14 +830,14 @@ class DecodeActivity : AbstractBaseActivity() {
 		scope.launch(Dispatchers.Main) {
 			val name = askForFileName() ?: return@launch
 			withContext(Dispatchers.IO) {
-				val message = writeExternalFile(
+				val report = ExportPaths.write(
+					this@DecodeActivity,
 					name,
-					"application/octet-stream"
-				) {
-					it.write(raw)
-				}.toSaveResult()
+					"application/octet-stream",
+					raw
+				)
 				withContext(Dispatchers.Main) {
-					toast(message)
+					toast(report.messageRes())
 				}
 			}
 		}
